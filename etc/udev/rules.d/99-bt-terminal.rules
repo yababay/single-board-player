@@ -1,0 +1,5 @@
+# Замените idVendor и idProduct на свои, но я рекомендую использовать
+# bluetooth-адаптеры именно на основе этого чипа, желательно ещё и с внешней антенной. 
+# Он хорошо совместим с Linux и Raspberry Pi в частности.
+
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0a12", ATTR{idProduct}=="0001", TAG+="systemd", ENV{SYSTEMD_WANTS}="bt-terminal.service"
