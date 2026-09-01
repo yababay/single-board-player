@@ -1,0 +1,29 @@
+#!/bin/bash
+
+while true; do
+
+        if [ -z "$(/usr/bin/bluetoothctl info 5C:FB:7C:E0:FC:56 | grep 'Connected: yes')" ]; then
+                sleep 5
+                continue
+        fi
+
+        sleep 5
+
+        /usr/bin/mpc volume 30 # Иногда включается слишком громко.
+
+        if [ -n "/usr/bin/mpc playlist" ]; then
+                echo Restoring previous...
+                /usr/bin/mpc play
+                exit 0
+        fi
+
+        PL_LENGTH=$(/usr/bin/mpc lsplaylists | wc -l)
+        PL_LINE=$(/usr/bin/shuf -i "1-$PL_LENGTH" -n 1)
+        PL_RECORD="$(/usr/bin/mpc lsplaylists | head -n $PL_LINE | tail -n 1)"
+
+        echo Loading $PL_RECORD...
+        /usr/bin/mpc load $PL_RECORD
+        /usr/bin/mpc play
+        exit 0
+
+done
