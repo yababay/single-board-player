@@ -1,0 +1,10 @@
+[Unit]
+Description=Play random playlist if no loaded
+After=mpd.service bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/play-random
+
+[Install]
+WantedBy=multi-user.target
