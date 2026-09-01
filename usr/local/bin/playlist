@@ -1,0 +1,38 @@
+#!/bin/bash
+
+PL_FN=/tmp/playlist
+
+KEY=$1
+NOW=$(date +%s)
+PL_TS=$(date --reference=$PL_FN +%s)
+DIFF=$(( $NOW - $PL_TS ))
+
+if [ "$DIFF" -ge "10" ]; then
+        rm $PL_FN
+fi
+
+PREFIX=""
+if [ -f "$PL_FN" ]; then 
+        PREFIX="$(cat $PL_FN)"
+fi
+
+case $KEY in
+        "0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9")
+                echo "$PREFIX$KEY" > $PL_FN
+                exit 0
+        ;;
+        *)
+                PREFIX="$(( 10000 + $PREFIX ))-"
+                PREFIX="$(echo $PREFIX | egrep -o '[0-9]{4}-')"
+                RECORD=$( /usr/bin/mpc lsplaylists | grep -v m3u | grep "$PREFIX" | head -n 1 )
+                if [ -n "$RECORD" ]; then
+                        echo Loading $RECORD...
+                        /usr/bin/mpc clear
+                        /usr/bin/mpc load $RECORD
+                        /usr/bin/mpc play
+                        rm $PL_FN
+                else
+                        echo Playlist with prefix $PREFIX is not found.
+                fi
+        ;;
+esac
