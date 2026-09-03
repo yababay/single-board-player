@@ -1,0 +1,16 @@
+[Unit]
+Description=Bluetooth RFCOMM Terminal Service
+After=bluetooth.target
+BindTo=dev-rfcomm0.device
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sleep 2
+ExecStartPre=/bin/hciconfig hci0 up
+ExecStartPre=/bin/hciconfig hci0 piscan
+ExecStart=/usr/bin/rfcomm watch hci0 1 /sbin/agetty -L 115200 rfcomm0 linux
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
