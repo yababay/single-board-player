@@ -10,7 +10,7 @@
 		"deploy:frontend": "./scripts/deploy-frontend.sh",
 		"deploy:assistant": "./scripts/deploy-backend.sh assistant",
 		"deploy:playlists": "./scripts/deploy-backend.sh playlists",
-		"deploy:backend": "./scripts/deploy-backend.sh",
+		"deploy:backend":   "./scripts/deploy-backend.sh",
 		"deploy": "npm run deploy:frontend && npm run deploy:backend",
 		"git:local": "read -p 'Суть коммита: ' COMMIT; git add . ; git commit -am $COMMIT",
 		"git:remote": "git push origin svelte",

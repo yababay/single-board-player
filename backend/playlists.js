@@ -1,10 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-// Имя вашего бакета данных в Yandex Object Storage
-const BUCKET_NAME = 'playlists-dispatcher'; 
-// Официальная точка монтирования папки хранения внутри файловой системы функций
-const MOUNT_PATH = path.join('/function/storage', BUCKET_NAME); 
+// 💡 Исправлено: Напрямую указываем явную ручную точку монтирования в функции
+const MOUNT_PATH = '/function/storage/playlists'; 
 
 /**
  * Точка входа Cloud Function
@@ -15,21 +13,19 @@ exports.handler = async function (event, context) {
         return _jsonResponse(405, { error: "Method Not Allowed" });
     }
 
-    // Извлекаем query-параметры (например, ?name=mozart.yaml)
     const queryParams = event.queryStringParameters || {};
     const fileName = queryParams.name;
 
     try {
-        // Проверяем физическое наличие смонтированной директории в ОС функции
+        // Проверяем физическое наличие смонтированной директории
         if (!fs.existsSync(MOUNT_PATH)) {
             return _jsonResponse(500, { 
-                error: `Директория хранения ${MOUNT_PATH} недоступна. Проверьте монтирование бакета в консоли.` 
+                error: `Директория хранения ${MOUNT_PATH} недоступна. Проверьте параметры флага --storage-mounts в скрипте деплоя.` 
             });
         }
 
         // РЕЖИМ 1: Чтение содержимого конкретного выбранного файла
         if (fileName) {
-            // Защита от атаки обхода директории (Path Traversal)
             const safeName = path.basename(fileName);
             const filePath = path.join(MOUNT_PATH, safeName);
 
@@ -48,7 +44,7 @@ exports.handler = async function (event, context) {
             };
         }
 
-        // РЕЖИМ 2: Возврат списка имен всех YAML-файлов (если параметр ?name пуст)
+        // РЕЖИМ 2: Возврат списка имен всех YAML-файлов
         const files = fs.readdirSync(MOUNT_PATH);
         const yamlPlaylists = files.filter(file => {
             const ext = path.extname(file).toLowerCase();

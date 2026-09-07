@@ -39,7 +39,7 @@ exports.handler = async function (event, context) {
     // Инициализируем клиента OpenAI API для Yandex AI Studio
     const client = new OpenAI({
         apiKey: API_KEY,
-        baseURL: "https://yandex.net", // Без /v1 на конце, библиотека добавит сама
+        baseURL: "https://rest-assistant.api.cloud.yandex.net/v1", // Без /v1 на конце, библиотека добавит сама
         defaultHeaders: {
             "x-folder-id": FOLDER_ID
         }
