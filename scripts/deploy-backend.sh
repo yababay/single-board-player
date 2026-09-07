@@ -10,7 +10,9 @@ BACKEND_DIR="backend"
 TMP_DIR="tmp_deploy"
 FUNCTION_NAME="$1" # Имя функции передается как аргумент скрипта
 
-echo "🚀 Начинаем деплой облачных функций..."
+if [ -z "$FUNCTION_NAME" ]; then
+    echo "🚀 Начинаем деплой облачных функций..."
+fi  
 
 # Проверяем наличие утилиты zip
 if ! command -v zip &> /dev/null; then
@@ -24,7 +26,7 @@ mkdir -p "$TMP_DIR"
 
 # ─── ШАГ 1: Деплой функции ASSISTANT ─────────────────────────────
 if [ $FUNCTION_NAME == "assistant" ] || [ -z "$FUNCTION_NAME" ]; then
-    echo "🤖 Шаг 1: Подготовка и деплой функции ASSISTANT..."
+    echo "🤖 Подготовка и деплой функции ASSISTANT..."
 
     # Для ассистента нужны: assistant.js (переименованный в index.js), package.json и инструкция .md
     mkdir -p "$TMP_DIR/assistant"
@@ -54,7 +56,7 @@ fi
 
 # ─── ШАГ 2: Деплой функции PLAYLISTS ─────────────────────────────
 if [ $FUNCTION_NAME == "playlists" ] || [ -z "$FUNCTION_NAME" ]; then
-    echo "📂 Шаг 2: Подготовка и деплой функции PLAYLISTS..."
+    echo "📂 Подготовка и деплой функции PLAYLISTS..."
 
     # Для файлового менеджера нужны: playlists.js (переименованный в index.js) и package.json
     mkdir -p "$TMP_DIR/playlists"
@@ -82,4 +84,7 @@ fi
 
 # ─── ОЧИСТКА ─────────────────────────────────────────────────────
 rm -rf "$TMP_DIR"
-echo "🎉 Весь бэкенд успешно задеплоен!"
+
+if [ -z "$FUNCTION_NAME" ]; then
+    echo "🎉 Весь бэкенд успешно задеплоен!"
+fi  
