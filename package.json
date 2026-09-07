@@ -7,10 +7,11 @@
 		"bro": "BROWSER=firefox vite dev --open",
 		"dev": "vite dev",
 		"build": "vite build",
-		"preview": "vite preview",
-		"prepare": "svelte-kit sync || echo ''",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+		"deploy:frontend": "./scripts/deploy-frontend.sh",
+		"deploy:backend": "./scripts/deploy-backend.sh",
+		"git:local": "read -p 'Суть коммита: ' COMMIT; git add . ; git commit -am $COMMIT",
+		"git:remote": "git push origin main",
+		"git": "npm run git:local && npm run git:remote"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.1",

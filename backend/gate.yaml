@@ -1,0 +1,45 @@
+openapi: 3.0.0
+info:
+  title: Media Tagger Gateway
+  version: 1.0.0
+
+paths:
+  # 1. Главная страница (Корневой домен приложения)
+  /:
+    get:
+      summary: Раздача главной страницы
+      x-yc-apigateway-integration:
+        type: object_storage
+        bucket: название_вашего_бакета # Укажите ваш бакет
+        object: index.html # Шлюз возьмет именно этот файл
+        service_account_id: <id_сервисного_аккаунта> # Аккаунт с ролью storage.viewer
+
+  # 2. Жадный роут для всех системных файлов SvelteKit (_app/immutable/...)
+  # Этот блок поймает любые запросы к /_app/..., /favicon.svg и т.д.
+  /{file+}:
+    get:
+      summary: Раздача статических ассетов JS, CSS, картинок
+      parameters:
+        - name: file
+          in: path
+          required: true
+          schema:
+            type: string
+      x-yc-apigateway-integration:
+        type: object_storage
+        bucket: название_вашего_бакета
+        object: '{file}' # Шлюз автоматически подставит путь, запрошенный браузером
+        service_account_id: <id_сервисного_аккаунта>
+
+  # 3. Ваши существующие роуты для функций ИИ и Списков (API)
+  /api/assistant:
+    post:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: <id_функции_assistant>
+        
+  /api/playlists:
+    get:
+      x-yc-apigateway-integration:
+        type: cloud_functions
+        function_id: <id_функции_playlists>

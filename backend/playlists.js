@@ -1,54 +1,54 @@
 const fs = require('fs');
 const path = require('path');
 
-// ⚠️ Укажите точное имя вашего бакета
-const BUCKET_NAME = 'playlists'; 
-// Официальная точка монтирования в Yandex Cloud: /function/storage/<имя_бакета>
+// Имя вашего бакета данных в Yandex Object Storage
+const BUCKET_NAME = 'playlists-dispatcher'; 
+// Официальная точка монтирования папки хранения внутри файловой системы функций
 const MOUNT_PATH = path.join('/function/storage', BUCKET_NAME); 
 
+/**
+ * Точка входа Cloud Function
+ */
 exports.handler = async function (event, context) {
     const method = event.httpMethod || event.requestContext?.http?.method || '';
     if (method !== 'GET') {
-        return { statusCode: 405, body: JSON.stringify({ error: "Method Not Allowed" }) };
+        return _jsonResponse(405, { error: "Method Not Allowed" });
     }
 
-    // Извлекаем query-параметры (например, ?name=playlist.yaml)
+    // Извлекаем query-параметры (например, ?name=mozart.yaml)
     const queryParams = event.queryStringParameters || {};
     const fileName = queryParams.name;
 
     try {
-        // Проверяем физическое наличие смонтированной папки
+        // Проверяем физическое наличие смонтированной директории в ОС функции
         if (!fs.existsSync(MOUNT_PATH)) {
-            return {
-                statusCode: 500,
-                headers: { "Content-Type": "application/json; charset=utf-8" },
-                body: JSON.stringify({ error: `Точка монтирования ${MOUNT_PATH} недоступна. Проверьте настройки интеграции функции с бакетом.` })
-            };
+            return _jsonResponse(500, { 
+                error: `Директория хранения ${MOUNT_PATH} недоступна. Проверьте монтирование бакета в консоли.` 
+            });
         }
 
-        // СЦЕНАРИЙ 1: Чтение содержимого конкретного файла
+        // РЕЖИМ 1: Чтение содержимого конкретного выбранного файла
         if (fileName) {
-            // Защита от выхода из директории (Path Traversal)
+            // Защита от атаки обхода директории (Path Traversal)
             const safeName = path.basename(fileName);
             const filePath = path.join(MOUNT_PATH, safeName);
 
             if (!fs.existsSync(filePath)) {
-                return {
-                    statusCode: 404,
-                    headers: { "Content-Type": "application/json; charset=utf-8" },
-                    body: JSON.stringify({ error: `Файл ${safeName} не найден в бакете.` })
-                };
+                return _jsonResponse(404, { error: `Файл ${safeName} не найден в вашем бакете.` });
             }
 
             const fileContent = fs.readFileSync(filePath, 'utf-8');
             return {
                 statusCode: 200,
-                headers: { "Content-Type": "text/yaml; charset=utf-8" },
+                headers: { 
+                    "Content-Type": "text/yaml; charset=utf-8",
+                    "Cache-Control": "no-cache"
+                },
                 body: fileContent
             };
         }
 
-        // СЦЕНАРИЙ 2: Возвращаем список всех YAML файлов (если параметр ?name не передан)
+        // РЕЖИМ 2: Возврат списка имен всех YAML-файлов (если параметр ?name пуст)
         const files = fs.readdirSync(MOUNT_PATH);
         const yamlPlaylists = files.filter(file => {
             const ext = path.extname(file).toLowerCase();
@@ -57,15 +57,22 @@ exports.handler = async function (event, context) {
 
         return {
             statusCode: 200,
-            headers: { "Content-Type": "application/json; charset=utf-8" },
+            headers: { 
+                "Content-Type": "application/json; charset=utf-8",
+                "Cache-Control": "no-cache"
+            },
             body: JSON.stringify(yamlPlaylists)
         };
 
     } catch (e) {
-        return {
-            statusCode: 500,
-            headers: { "Content-Type": "application/json; charset=utf-8" },
-            body: JSON.stringify({ error: `Ошибка файловой системы: ${e.message}` })
-        };
+        return _jsonResponse(500, { error: `Ошибка файловой системы бэкенда: ${e.message}` });
     }
 };
+
+function _jsonResponse(statusCode, data) {
+    return {
+        statusCode: statusCode,
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify(data)
+    };
+}
