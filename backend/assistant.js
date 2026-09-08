@@ -41,34 +41,56 @@ exports.handler = async function (event, context) {
     }
 
     // Если ответ содержит наш маркер плоского списка лингвистического агента
+    // Если ответ содержит наш маркер плоского списка лингвистического агента
     if (rawText.includes('|=>')) {
-        // Собираем полноценный Bash-скрипт программным путем
         const globalTags = body.globalTags || {};
-        let bashScript = "#!/bin/bash\n\n# Скрипт сгенерирован автоматически бэкендом\n";
+        
+        // 1. Динамически вычисляем имя скачиваемого файла
+        const clientPlaylistName = body.playlistName || "apply_tags.yaml";
+        const downloadFileName = clientPlaylistName.replace(/\.yam?l$/i, '.sh');
+
+        let bashScript = "#!/bin/bash\n\n# Скрипт сгенерирован автоматически бэкендом\n\n";
         
         const lines = rawText.split('\n');
         for (let line of lines) {
             if (!line.includes('|=>')) continue;
+            
             const parts = line.split('|=>');
             const filePath = parts[0].trim();
             const cleanTitle = parts[1].trim();
 
-            // Формируем строгую команду eyeD3
-            let cmd = `eyeD3`;
-            if (globalTags.artist) cmd += ` --artist "${globalTags.artist}"`;
-            if (globalTags.composer) cmd += ` --composer "${globalTags.composer}"`;
-            if (globalTags.album) cmd += ` --album "${globalTags.album}"`;
-            if (globalTags.genre) cmd += ` --genre "${globalTags.genre}"`;
-            cmd += ` --title "${cleanTitle}" "${filePath}"`;
+            // 2. Красивая многострочная сборка команды eyeD3 с обратными слэшами
+            let cmd = `eyeD3 \\\n`;
+            if (globalTags.artist) cmd += `  --artist "${globalTags.artist}" \\\n`;
+            if (globalTags.composer) cmd += `  --composer "${globalTags.composer}" \\\n`;
+            if (globalTags.album) cmd += `  --album "${globalTags.album}" \\\n`;
+            if (globalTags.genre) cmd += `  --genre "${globalTags.genre}" \\\n`;
+            if (globalTags.releaseYear) cmd += `  --release-year "${globalTags.releaseYear}" \\\n`;
+            
+            // Стандартный фрейм ID3v2 для издателя (TPUB)
+            if (globalTags.publisher) {
+                cmd += `  --user-text-frame "TPUB:${globalTags.publisher}" \\\n`;
+            }
+            
+            // Кастомные фреймы TXXX (Исправлены имена свойств в соответствии с фронтендом)
+            if (globalTags.instrument) cmd += `  --user-text-frame "Instrument:${globalTags.instrument}" \\\n`;
+            if (globalTags.style) cmd += `  --user-text-frame "Style:${globalTags.style}" \\\n`;
+            if (globalTags.mood) cmd += `  --user-text-frame "Mood:${globalTags.mood}" \\\n`;
+            if (globalTags.period) cmd += `  --user-text-frame "Period:${globalTags.period}" \\\n`;
+
+            // Завершаем команду названием трека и путем к файлу (уже без слэша на конце)
+            cmd += `  --title "${cleanTitle}" "${filePath}"\n`;
 
             bashScript += `${cmd}\n`;
         }
 
+        // Возвращаем файл с кастомным именем в заголовках
         return {
             statusCode: 200,
             headers: {
                 "Content-Type": "text/x-shellscript; charset=utf-8",
-                "Content-Disposition": 'attachment; filename="apply_tags.sh"'
+                "Content-Disposition": `attachment; filename="${downloadFileName}"`,
+                "Cache-Control": "no-cache"
             },
             body: bashScript
         };

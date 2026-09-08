@@ -126,6 +126,7 @@ export const actions = {
 				body: JSON.stringify({
 					query: finalQuery,
 					instruction: state.currentInstructionText,
+					playlistName: state.selectedPlaylist, // 💡 Передаем имя выбранного плейлиста (например: 0101-bach.yaml)
 					globalTags: {
 						artist: state.expertArtist,
 						composer: state.expertComposer,
@@ -145,18 +146,24 @@ export const actions = {
 
 			const contentType = response.headers.get('Content-Type') || '';
 			if (contentType.includes('text/x-shellscript')) {
+				// Извлекаем имя файла из заголовка Content-Disposition, который пришлет бэкенд
+				const contentDisposition = response.headers.get('Content-Disposition') || '';
+				const matches = contentDisposition.match(/filename="(.+?)"/);
+				const downloadName = matches ? matches[1] : 'apply_tags.sh'; // Фолбэк, если что-то пойдет не так
+
 				const blob = await response.blob();
 				const url = window.URL.createObjectURL(blob);
 				const a = document.createElement('a');
 				a.href = url;
-				a.download = 'apply_tags.sh';
+				a.download = downloadName; // 💡 Браузер предложит имя самого плейлиста с расширением .sh
 				document.body.appendChild(a);
 				a.click();
 				a.remove();
 				window.URL.revokeObjectURL(url);
-				state.statusMessage = 'Успешно! Скрипт apply_tags.sh скачан.';
+				state.statusMessage = `Успешно! Скрипт ${downloadName} скачан.`;
 				state.statusColor = 'green';
-			} else {
+			}
+			else {
 				state.outputText = await response.text();
 				state.statusMessage = 'Ответ от ИИ-агента:';
 				state.statusColor = '#333';
