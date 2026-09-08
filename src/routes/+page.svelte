@@ -52,30 +52,35 @@
 
 			<button onclick={() => actions.processRequest()} disabled={state.isPending}> Сгенерировать .sh скрипт </button>
 		
-		<!-- ВКЛАДКА 2: АВТОМАТИЧЕСКАЯ ПАНЕЛЬ ТЕГОВ С УМНЫМ СЕЛЕКТОМ ЖАНРОВ -->
+	<!-- ВКЛАДКА 2: ДИНАМИЧЕСКАЯ ПАНЕЛЬ ТЕГОВ С ПОДДЕРЖКОЙ ИСТОРИИ БРАУЗЕРА -->
 		{:else if state.activeTab === 'tags_config'}
 			<div class="expert-panel">
 				<h3>✍️ Архивные метаданные медиатеки</h3>
-				<div class="grid">
-					{#each state.expertTags as tag, i}
-						<!-- 💡 ИСПРАВЛЕНИЕ: Обычные текстовые инпуты рендерим для всех полей, кроме жанра -->
-						{#if tag.id !== 'genre'}
-							<div class="form-group">
-								<label for="tag-{tag.id}">{tag.label} ({tag.type === 'txxx' ? 'TXXX:' : ''}{tag.flag}):</label>
-								<input 
-									id="tag-{tag.id}" 
-									type="text" 
-									bind:value={state.expertTags[i].value} 
-									placeholder={tag.placeholder}
-									oninput={(e) => actions.saveTagValue(tag.id, (e.target as HTMLInputElement).value)}
-								/>
-							</div>
-						{:else}
-							<!-- 💡 Вместо инпута вставляем наш новый изолированный компонент селекта -->
-							<Genre />
-						{/if}
-					{/each}
-				</div>
+				
+				<!-- 💡 ДОБАВЛЕНО: Нативная форма с явным включением автодополнения. 
+				     onsubmit="return false" предотвращает реальную перезагрузку страницы -->
+				<form autocomplete="on" onsubmit={() => false}>
+					<div class="grid">
+						{#each state.expertTags as tag, i}
+							{#if tag.id !== 'genre'}
+								<div class="form-group">
+									<label for="tag-{tag.id}">{tag.label} ({tag.type === 'txxx' ? 'TXXX:' : ''}{tag.flag}):</label>
+									<!-- 💡 ДОБАВЛЕНО: Атрибут name, привязанный к id тега. Именно по нему браузер будет копить историю ввода -->
+									<input 
+										id="tag-{tag.id}" 
+										name="archive-tag-{tag.id}"
+										type="text" 
+										bind:value={state.expertTags[i].value} 
+										placeholder={tag.placeholder}
+										oninput={(e) => actions.saveTagValue(tag.id, (e.target as HTMLInputElement).value)}
+									/>
+								</div>
+							{:else}
+								<Genre />
+							{/if}
+						{/each}
+					</div>
+				</form>
 				
 				<div class="action-row">
 					<button class="btn-clear" onclick={() => actions.clearExpertTags()}>
@@ -84,7 +89,7 @@
 				</div>
 				
 			</div>
-		
+
 		<!-- ВКЛАДКА 3: ИНСТРУКЦИИ -->
 		{:else if state.activeTab === 'instructions'}
 			<div class="form-group">
