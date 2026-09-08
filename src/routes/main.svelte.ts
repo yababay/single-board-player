@@ -113,15 +113,38 @@ export const actions = {
 
 	async processRequest() {
 		if (!state.query.trim() || !state.currentInstructionText.trim()) {
-			alert('Запрос и text инструкции не должны быть пустыми.');
+			alert('Запрос и текст инструкции не должны быть пустыми.');
 			return;
 		}
 
-		let finalQuery = state.query.trim();
-		if (state.yamlData.trim()) finalQuery += `\n\n\`\`\`yaml\n${state.yamlData.trim()}\n\`\`\``;
+		// 💡 НОВАЯ ЛОГИКА: Извлекаем три ключевых тега для формирования контекста ИИ
+		const findTagValue = (id: string) => state.expertTags.find(t => t.id === id)?.value?.trim() || '';
+		const contextComposer = findTagValue('composer');
+		const contextArtist = findTagValue('artist');
+		const contextAlbum = findTagValue('album');
+
+		// Начинаем сборку финального запроса
+		let finalQuery = '';
+
+		// Если хотя бы одно из ключевых полей заполнено, формируем блок контекста
+		if (contextComposer || contextArtist || contextAlbum) {
+			finalQuery += `Контекст альбома для разметки:\n`;
+			if (contextComposer) finalQuery += `- Композитор: ${contextComposer}\n`;
+			if (contextArtist)   finalQuery += `- Исполнитель: ${contextArtist}\n`;
+			if (contextAlbum)    finalQuery += `- Произведение: ${contextAlbum}\n`;
+			finalQuery += `\n`; // Отступ перед основным заданием
+		}
+
+		// Добавляем само задание (например: "Обработай названия треков...")
+		finalQuery += state.query.trim();
+
+		// Прикрепляем тело YAML-плейлиста
+		if (state.yamlData.trim()) {
+			finalQuery += `\n\n\`\`\`yaml\n${state.yamlData.trim()}\n\`\`\``;
+		}
 
 		state.isPending = true;
-		state.statusMessage = 'Лингвистический агент обрабатывает названия треков...';
+		state.statusMessage = 'Лингвистический агент анализирует контекст альбома и обрабатывает названия треков...';
 		state.statusColor = '#007bff';
 		state.outputText = '';
 
@@ -130,7 +153,7 @@ export const actions = {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.iamToken}` },
 				body: JSON.stringify({
-					query: finalQuery,
+					query: finalQuery, // Отправляем склеенный запрос с контекстом
 					instruction: state.currentInstructionText,
 					playlistName: state.selectedPlaylist,
 					tagsConfig: state.expertTags 
@@ -163,10 +186,10 @@ export const actions = {
 			}
 		} catch (error: any) {
 			state.statusMessage = `Ошибка: ${error.message}`;
-			state.statusColor = 'red'; // Поправили опечатку строки 148
+			state.statusColor = 'red';
 		} finally { state.isPending = false; }
 	},
-
+	
 	login() {
 		if (!state.iamToken.trim()) return;
 		localStorage.setItem('yc_iam_token', state.iamToken.trim());
