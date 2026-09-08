@@ -1,4 +1,4 @@
-// Логический модуль управления состоянием медиатеки v2.4
+// Логический модуль управления состоянием медиатеки v2.5
 import tags from '$lib/assets/mp3-tags.json';
 
 interface TagItem {
@@ -19,8 +19,7 @@ export const state = $state({
 	isPending: false,
 	activeTab: 'tagger',
 
-	// 💡 ИСПРАВЛЕНИЕ: Никаких вызовов $state внутри .map(). 
-	// Сам массив находится внутри прокси-оболочки state, что делает его структуру реактивной.
+	// Инициализируем массив тегов
 	expertTags: tags.map(t => ({
 		id: t.id,
 		label: t.label,
@@ -52,10 +51,41 @@ export const actions = {
 			if (age < TOKEN_LIFETIME_MS) {
 				state.iamToken = savedToken;
 				state.isAuthorized = true;
+				
+				// 💡 НОВАЯ ЛОГИКА: Подтягиваем сохраненные значения тегов из localStorage
+				this.loadSavedTags();
+				
 				this.initCloudData();
 			} else {
 				this.clearToken();
 			}
+		}
+	},
+
+	// 💡 НОВАЯ ЛОГИКА: Загрузка тегов из памяти браузера
+	loadSavedTags() {
+		state.expertTags.forEach(tag => {
+			const savedValue = localStorage.getItem(`tag_val_${tag.id}`);
+			if (savedValue !== null) {
+				tag.value = savedValue;
+			}
+		});
+	},
+
+	// 💡 НОВАЯ ЛОГИКА: Сохранение конкретного тега при вводе
+	saveTagValue(id: string, value: string) {
+		localStorage.setItem(`tag_val_${id}`, value);
+	},
+
+	// 💡 НОВАЯ ЛОГИКА: Кнопка полной очистки полей и localStorage
+	clearExpertTags() {
+		if (confirm('Вы уверены, что хотите полностью очистить все глобальные теги?')) {
+			state.expertTags.forEach(tag => {
+				tag.value = '';
+				localStorage.removeItem(`tag_val_${tag.id}`);
+			});
+			state.statusMessage = 'Все глобальные теги успешно очищены.';
+			state.statusColor = '#555';
 		}
 	},
 
@@ -76,7 +106,7 @@ export const actions = {
 				} else {
 					state.instructions = data.sort((a: string, b: string) => a.localeCompare(b));
 					if (state.instructions.length > 0 && !state.selectedInstruction) {
-						state.selectedInstruction = state.instructions[0]; // Исправили на индекс 0
+						state.selectedInstruction = state.instructions[0];
 						this.loadInstructionText(state.selectedInstruction);
 					}
 				}
@@ -117,28 +147,22 @@ export const actions = {
 			return;
 		}
 
-		// 💡 НОВАЯ ЛОГИКА: Извлекаем три ключевых тега для формирования контекста ИИ
 		const findTagValue = (id: string) => state.expertTags.find(t => t.id === id)?.value?.trim() || '';
 		const contextComposer = findTagValue('composer');
 		const contextArtist = findTagValue('artist');
 		const contextAlbum = findTagValue('album');
 
-		// Начинаем сборку финального запроса
 		let finalQuery = '';
-
-		// Если хотя бы одно из ключевых полей заполнено, формируем блок контекста
 		if (contextComposer || contextArtist || contextAlbum) {
 			finalQuery += `Контекст альбома для разметки:\n`;
 			if (contextComposer) finalQuery += `- Композитор: ${contextComposer}\n`;
 			if (contextArtist)   finalQuery += `- Исполнитель: ${contextArtist}\n`;
 			if (contextAlbum)    finalQuery += `- Произведение: ${contextAlbum}\n`;
-			finalQuery += `\n`; // Отступ перед основным заданием
+			finalQuery += `\n`;
 		}
 
-		// Добавляем само задание (например: "Обработай названия треков...")
 		finalQuery += state.query.trim();
 
-		// Прикрепляем тело YAML-плейлиста
 		if (state.yamlData.trim()) {
 			finalQuery += `\n\n\`\`\`yaml\n${state.yamlData.trim()}\n\`\`\``;
 		}
@@ -153,7 +177,7 @@ export const actions = {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.iamToken}` },
 				body: JSON.stringify({
-					query: finalQuery, // Отправляем склеенный запрос с контекстом
+					query: finalQuery,
 					instruction: state.currentInstructionText,
 					playlistName: state.selectedPlaylist,
 					tagsConfig: state.expertTags 
@@ -166,7 +190,7 @@ export const actions = {
 			if (contentType.includes('text/x-shellscript')) {
 				const contentDisposition = response.headers.get('Content-Disposition') || '';
 				const matches = contentDisposition.match(/filename="(.+?)"/);
-				const downloadName = matches ? matches[1] : 'apply_tags.sh';
+				const downloadName = matches?.[1] ?? 'apply_tags.sh';
 
 				const blob = await response.blob();
 				const url = window.URL.createObjectURL(blob);
@@ -189,7 +213,7 @@ export const actions = {
 			state.statusColor = 'red';
 		} finally { state.isPending = false; }
 	},
-	
+
 	login() {
 		if (!state.iamToken.trim()) return;
 		localStorage.setItem('yc_iam_token', state.iamToken.trim());

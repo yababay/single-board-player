@@ -51,28 +51,36 @@
 
 			<button onclick={() => actions.processRequest()} disabled={state.isPending}> Сгенерировать .sh скрипт </button>
 		
-		<!-- ВКЛАДКА 2: АВТОМАТИЧЕСКАЯ ИСПРАВЛЕННАЯ ПАНЕЛЬ ТЕГОВ -->
+		<!-- ВКЛАДКА 2: АВТОМАТИЧЕСКАЯ ПАНЕЛЬ ТЕГОВ С ХРАНЕНИЕМ И СБРОСОМ -->
 		{:else if state.activeTab === 'tags_config'}
 			<div class="expert-panel">
 				<h3>✍️ Архивные метаданные медиатеки</h3>
 				<div class="grid">
-					<!-- 💡 ИСПРАВЛЕНИЕ: Извлекаем индекс "i" в цикле {#each} -->
 					{#each state.expertTags as tag, i}
 						<div class="form-group">
 							<label for="tag-{tag.id}">{tag.label} ({tag.type === 'txxx' ? 'TXXX:' : ''}{tag.flag}):</label>
-							<!-- 💡 ИСПРАВЛЕНИЕ: Привязываем bind:value строго по индексу массива -->
+							<!-- 💡 ДОБАВЛЕНО: oninput для сохранения значения в localStorage на лету -->
 							<input 
 								id="tag-{tag.id}" 
 								type="text" 
 								bind:value={state.expertTags[i].value} 
 								placeholder={tag.placeholder}
+								oninput={(e) => actions.saveTagValue(tag.id, (e.target as HTMLInputElement).value)}
 							/>
 						</div>
 					{/each}
 				</div>
-				<p class="hint-text">💡 Поля теперь абсолютно реактивны, а проект компилируется без ошибок Svelte 5. Пустые теги игнорируются сборщиком.</p>
+				
+				<!-- 💡 НОВАЯ КНОПКА: Очистка вкладки -->
+				<div class="action-row">
+					<button class="btn-clear" onclick={() => actions.clearExpertTags()}>
+						<i class="bi bi-trash"></i> Очистить все теги
+					</button>
+				</div>
+				
+				<!-- p class="hint-text">💡 Значения полей сохраняются в памяти браузера и не пропадут при обновлении страницы по F5.</p -->
 			</div>
-
+		
 		<!-- ВКЛАДКА 3: ИНСТРУКЦИИ -->
 		{:else if state.activeTab === 'instructions'}
 			<div class="form-group">
@@ -115,4 +123,20 @@
 	button:disabled { background-color: #cccccc; cursor: not-allowed; }
 	#status { margin-top: 15px; font-weight: bold; text-align: left; }
 	#output { margin-top: 20px; padding: 15px; background: #e9ecef; border-left: 4px solid #007bff; white-space: pre-wrap; text-align: left; font-family: 'Courier New', monospace; }
+	.action-row {
+		margin-top: 25px;
+		display: flex;
+		justify-content: flex-end;
+		border-top: 1px solid #eee;
+		padding-top: 15px;
+	}
+	.btn-clear {
+		background-color: #dc3545;
+		width: auto;
+		padding: 10px 20px;
+		font-size: 14px;
+	}
+	.btn-clear:hover {
+		background-color: #bd2130;
+	}
 </style>

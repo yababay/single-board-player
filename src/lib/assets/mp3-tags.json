@@ -4,6 +4,8 @@
   { "id": "album", "label": "Альбом", "type": "standard", "flag": "--album", "placeholder": "Итальянский концерт. Французская увертюра", "value": "" },
   { "id": "genre", "label": "Жанр", "type": "standard", "flag": "--genre", "placeholder": "Классическая музыка", "value": "" },
   { "id": "releaseYear", "label": "Год издания", "type": "standard", "flag": "--release-year", "placeholder": "1984", "value": "" },
+  { "id": "recordingDate", "label": "Год записи", "type": "standard", "flag": "--recording-date", "placeholder": "1960", "value": "" },
+  { "id": "comment", "label": "Комментарий", "type": "standard", "flag": "--comment", "placeholder": "Соната известна как «Лунная»", "value": "" },
   { "id": "publisher", "label": "Издатель", "type": "tpub", "flag": "TPUB", "placeholder": "Фирма «Мелодия»", "value": "" },
   
   { "id": "form", "label": "Музыкальная форма", "type": "txxx", "flag": "Form", "placeholder": "Концерт для клавесина с оркестром", "value": "" },
