@@ -49,7 +49,7 @@ if [ "$FUNCTION_NAME" == "assistant" ] || [ -z "$FUNCTION_NAME" ]; then
         --folder-id "$YC_FOLDER_ID" \
         --service-account-id "$YC_ACCOUNT_ID" \
         --source-path "$TMP_DIR/assistant.zip" \
-        --environment "VECTOR_STORE_ID=$YC_VECTOR_STORE_ID,YANDEX_API_KEY=$YC_API_KEY,MODEL_NAME=$YC_MODEL_NAME,FOLDER_ID=$YC_FOLDER_ID"
+        --environment "BASE_URL=$YC_BASE_URL,YANDEX_API_KEY=$YC_API_KEY,MODEL_NAME=$YC_MODEL_NAME,FOLDER_ID=$YC_FOLDER_ID"
 
     echo "✅ Функция ASSISTANT успешно обновлена!"
 fi
@@ -66,7 +66,8 @@ if [ "$FUNCTION_NAME" == "playlists" ] || [ -z "$FUNCTION_NAME" ]; then
     zip -q -r "../playlists.zip" ./*
     cd ../..
 
-    echo "📤 Загрузка новой версии функции playlists с монтированием бакета..."
+    echo "📤 Загрузка новой версии функции playlists с двойным монтированием..."
+    # 💡 Каждый ресурс монтируется через СВОЙ собственный флаг --mount
     yc serverless function version create \
         --function-name playlists \
         --runtime nodejs22 \
@@ -76,7 +77,8 @@ if [ "$FUNCTION_NAME" == "playlists" ] || [ -z "$FUNCTION_NAME" ]; then
         --folder-id "$YC_FOLDER_ID" \
         --service-account-id "$YC_ACCOUNT_ID" \
         --source-path "$TMP_DIR/playlists.zip" \
-        --mount type=object-storage,mount-point=playlists,bucket=playlists-dispatcher,prefix=playlists
+        --mount type=object-storage,mount-point=playlists,bucket=playlists-dispatcher,prefix=playlists \
+        --mount type=object-storage,mount-point=instructions,bucket=playlists-dispatcher,prefix=instructions
 
     echo "✅ Функция PLAYLISTS успешно обновлена!"
 fi

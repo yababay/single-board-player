@@ -1,21 +1,12 @@
 const { OpenAI } = require('openai');
 const fs = require('fs');
-const path = require('path');
 
-// Настройки из переменных окружения Яндекс Облака
 const FOLDER_ID = process.env.FOLDER_ID;
 const API_KEY = process.env.YANDEX_API_KEY;
-const MODEL_NAME = process.env.MODEL_NAME || "yandexgpt/latest";
-const VECTOR_STORE_ID = process.env.VECTOR_STORE_ID;
+const MODEL_NAME = process.env.MODEL_NAME || "qwen3.6-35b-a3b";
+const BASE_URL = process.env.BASE_URL || "https" + "://rest-assistant.api.cloud.yandex.net/v1";
 
-// Путь к файлу инструкции (скрипт деплоя автоматически переименует system-instruction.md в system-prompt.md)
-const PROMPT_PATH = path.join(__dirname, 'system-prompt.md');
-
-/**
- * Точка входа Cloud Function
- */
 exports.handler = async function (event, context) {
-    // Авторизация проверена API-шлюзом на входе, сразу разбираем body
     let body;
     try {
         body = typeof event.body === 'string' ? JSON.parse(event.body) : (event.body || {});
@@ -24,104 +15,73 @@ exports.handler = async function (event, context) {
     }
 
     const query = (body.query || "").trim();
-    if (!query) {
-        return _jsonResponse(400, { error: "Missing 'query' field" });
-    }
+    // Фронтенд теперь передает текст выбранной инструкции прямо в body запроса!
+    const customInstruction = (body.instruction || "").trim(); 
 
-    // Читаем системную Markdown-инструкцию из локального файла
-    let systemPrompt;
-    try {
-        systemPrompt = fs.readFileSync(PROMPT_PATH, 'utf-8');
-    } catch (e) {
-        return _jsonResponse(500, { error: `Failed to read system-prompt.md: ${e.message}` });
-    }
+    if (!query) return _jsonResponse(400, { error: "Missing 'query' field" });
+    if (!customInstruction) return _jsonResponse(400, { error: "Missing 'instruction' field" });
 
-    // Инициализируем клиента OpenAI API для Yandex AI Studio
     const client = new OpenAI({
         apiKey: API_KEY,
-        baseURL: "https://rest-assistant.api.cloud.yandex.net/v1", // Без /v1 на конце, библиотека добавит сама
-        defaultHeaders: {
-            "x-folder-id": FOLDER_ID
-        }
+        baseURL: BASE_URL,
+        defaultHeaders: { "x-folder-id": FOLDER_ID }
     });
 
     let rawText = "";
     try {
         const response = await client.responses.create({
             model: `gpt://${FOLDER_ID}/${MODEL_NAME}`, 
-            instructions: systemPrompt,
-            tools: [
-                {
-                    type: "file_search",
-                    vector_store_ids: [VECTOR_STORE_ID],
-                }
-            ],
+            instructions: customInstruction, // Используем динамическую инструкцию
             input: query,
-            temperature: 0.2,
+            temperature: 0.1,
         });
-        
         rawText = response.output_text || "";
     } catch (e) {
-        return _jsonResponse(500, { error: `AI Studio request failed: ${e.message}` });
+        return _jsonResponse(500, { error: `AI Studio error: ${e.message}` });
     }
 
-    // Если модель просто ответила текстом на вопрос (например, посчитала треки)
-    if (!/eyeD3/.test(rawText)) {
+    // Если ответ содержит наш маркер плоского списка лингвистического агента
+    if (rawText.includes('|=>')) {
+        // Собираем полноценный Bash-скрипт программным путем
+        const globalTags = body.globalTags || {};
+        let bashScript = "#!/bin/bash\n\n# Скрипт сгенерирован автоматически бэкендом\n";
+        
+        const lines = rawText.split('\n');
+        for (let line of lines) {
+            if (!line.includes('|=>')) continue;
+            const parts = line.split('|=>');
+            const filePath = parts[0].trim();
+            const cleanTitle = parts[1].trim();
+
+            // Формируем строгую команду eyeD3
+            let cmd = `eyeD3`;
+            if (globalTags.artist) cmd += ` --artist "${globalTags.artist}"`;
+            if (globalTags.composer) cmd += ` --composer "${globalTags.composer}"`;
+            if (globalTags.album) cmd += ` --album "${globalTags.album}"`;
+            if (globalTags.genre) cmd += ` --genre "${globalTags.genre}"`;
+            cmd += ` --title "${cleanTitle}" "${filePath}"`;
+
+            bashScript += `${cmd}\n`;
+        }
+
         return {
             statusCode: 200,
-            headers: { "Content-Type": "text/plain; charset=utf-8" },
-            body: rawText 
+            headers: {
+                "Content-Type": "text/x-shellscript; charset=utf-8",
+                "Content-Disposition": 'attachment; filename="apply_tags.sh"'
+            },
+            body: bashScript
         };
     }
 
-    // Если в ответе есть команды eyeD3 — извлекаем чистый Bash-код
-    const bashScript = _extractBashScript(rawText);
-
-    // Формируем ответ в виде скачиваемого файла .sh
+    // В противном случае (если это был обычный диалог или подсчет) — возвращаем текст как есть
     return {
         statusCode: 200,
-        headers: {
-            "Content-Type": "text/x-shellscript; charset=utf-8",
-            "Content-Disposition": 'attachment; filename="apply_tags.sh"',
-            "Cache-Control": "no-cache"
-        },
-        body: bashScript
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        body: rawText
     };
 };
 
-/**
- * Извлекает чистый Bash-код, убирая markdown-теги
- */
-function _extractBashScript(text) {
-    if (!text) return "# Скрипт пуст или не был сгенерирован моделью";
-
-    let cleaned = text.trim();
-
-    // Проверяем, завернул ли ИИ код в маркеры ```bash ... ```
-    const match = cleaned.match(/```(?:bash)?\s*([\s\S]*?)\s*```/);
-    if (match) {
-        cleaned = match[1].trim();
-        if (!cleaned.startsWith("#!/bin/bash")) {
-            cleaned = "#!/bin/bash\n\n" + cleaned;
-        }
-        return cleaned;
-    }
-
-    // Если ИИ выдал команды без обертки в блоки кода
-    if (cleaned.includes("eyeD3")) {
-        if (!cleaned.startsWith("#!/bin/bash")) {
-            cleaned = "#!/bin/bash\n\n" + cleaned;
-        }
-        return cleaned;
-    }
-
-    return cleaned;
-}
-
 function _jsonResponse(statusCode, data) {
-    return {
-        statusCode: statusCode,
-        headers: { "Content-Type": "application/json; charset=utf-8" },
-        body: JSON.stringify(data)
-    };
+    return { statusCode, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) };
 }

@@ -1,332 +1,118 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-
-	let query = $state('Сформируй .sh скрипт разметки для этого плейлиста');
-	let yamlData = $state('');
-	let statusMessage = $state('');
-	let statusColor = $state('#555');
-	let outputText = $state('');
-	let isPending = $state(false);
-
-	let iamToken = $state('');
-	let isAuthorized = $state(false);
-
-	let playlists: string[] = $state([]);
-	let selectedPlaylistName = $state('');
-
-	const ASSISTANT_URL = '/api/assistant';
-	const PLAYLISTS_URL = '/api/playlists';
-	const TOKEN_LIFETIME_MS = 4 * 60 * 60 * 1000;
+	import { state, actions } from './main.svelte';
 
 	onMount(() => {
-		const savedToken = localStorage.getItem('yc_iam_token');
-		const savedTime = localStorage.getItem('yc_token_saved_at');
-
-		if (savedToken && savedTime) {
-			const age = Date.now() - parseInt(savedTime, 10);
-			if (age < TOKEN_LIFETIME_MS) {
-				iamToken = savedToken;
-				isAuthorized = true;
-				loadPlaylists(); 
-			} else {
-				clearToken();
-			}
-		}
+		actions.checkSession();
 	});
-
-	async function loginWithToken() {
-		if (!iamToken.trim()) {
-			alert('Пожалуйста, введите IAM-токен.');
-			return;
-		}
-
-		isPending = true;
-		statusMessage = 'Проверка токена и загрузка плейлистов...';
-		statusColor = '#007bff';
-
-		try {
-			const response = await fetch(PLAYLISTS_URL, {
-				method: 'GET',
-				headers: { 'Authorization': `Bearer ${iamToken.trim()}` }
-			});
-
-			if (response.status === 401 || response.status === 403) {
-				throw new Error('Введенный IAM-токен невалиден или его срок действия истек.');
-			}
-
-			if (!response.ok) {
-				const errData = await response.json().catch(() => ({}));
-				throw new Error(errData.error || `Ошибка сервера ${response.status}`);
-			}
-
-			playlists = await response.json();
-			
-			localStorage.setItem('yc_iam_token', iamToken.trim());
-			localStorage.setItem('yc_token_saved_at', Date.now().toString());
-			isAuthorized = true;
-			
-			statusMessage = `Авторизация успешна. Доступно плейлистов: ${playlists.length}`;
-			statusColor = 'green';
-		} catch (error: any) {
-			statusMessage = `Ошибка авторизации: ${error.message}`;
-			statusColor = 'red';
-			clearToken();
-		} finally {
-			isPending = false;
-		}
-	}
-
-	async function loadPlaylists() {
-		try {
-			const response = await fetch(PLAYLISTS_URL, {
-				method: 'GET',
-				headers: { 'Authorization': `Bearer ${iamToken.trim()}` }
-			});
-			if (response.ok) {
-				playlists = await response.json();
-			} else if (response.status === 401) {
-				clearToken();
-			}
-		} catch (e) {
-			console.error('Ошибка загрузки плейлистов:', e);
-		}
-	}
-
-	// Реальное скачивание содержимого выбранного YAML-файла
-	async function handlePlaylistChange(e: Event) {
-		const target = e.target as HTMLInputElement;
-		const name = target.value.trim();
-		
-		if (playlists.includes(name)) {
-			statusMessage = `Загрузка содержимого файла ${name}...`;
-			statusColor = '#007bff';
-			yamlData = ''; // Очищаем старые данные перед загрузкой
-			
-			try {
-				// Делаем GET запрос с query-параметром ?name=...
-				const response = await fetch(`${PLAYLISTS_URL}?name=${encodeURIComponent(name)}`, {
-					method: 'GET',
-					headers: { 'Authorization': `Bearer ${iamToken.trim()}` }
-				});
-
-				if (!response.ok) {
-					const errData = await response.json().catch(() => ({}));
-					throw new Error(errData.error || `Ошибка загрузки файла: ${response.status}`);
-				}
-
-				yamlData = await response.text();
-				statusMessage = `Плейлист ${name} успешно загружен и готов к редактированию.`;
-				statusColor = 'green';
-			} catch (err: any) {
-				statusMessage = `Не удалось загрузить файл: ${err.message}`;
-				statusColor = 'red';
-			}
-		}
-	}
-
-	function clearToken() {
-		localStorage.removeItem('yc_iam_token');
-		localStorage.removeItem('yc_token_saved_at');
-		iamToken = '';
-		isAuthorized = false;
-		playlists = [];
-		selectedPlaylistName = '';
-	}
-
-	async function processRequest() {
-		if (!query.trim()) {
-			alert('Пожалуйста, введите запрос для ИИ-агента.');
-			return;
-		}
-
-		let finalQuery = query.trim();
-		if (yamlData.trim()) {
-			finalQuery += `\n\n\`\`\`yaml\n${yamlData.trim()}\n\`\`\``;
-		}
-
-		isPending = true;
-		statusMessage = 'Агент анализирует данные и формирует ответ...';
-		statusColor = '#007bff';
-		outputText = '';
-
-		try {
-			const response = await fetch(ASSISTANT_URL, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'Authorization': `Bearer ${iamToken.trim()}`
-				},
-				body: JSON.stringify({ query: finalQuery })
-			});
-
-			if (response.status === 401 || response.status === 403) {
-				clearToken();
-				throw new Error('Срок действия токена истек. Войдите заново.');
-			}
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				throw new Error(errorData.error || `Ошибка сервера: ${response.status}`);
-			}
-
-			const contentType = response.headers.get('Content-Type') || '';
-
-			if (contentType.includes('text/x-shellscript')) {
-				const blob = await response.blob();
-				const url = window.URL.createObjectURL(blob);
-				const a = document.createElement('a');
-				a.href = url;
-				a.download = 'apply_tags.sh';
-				document.body.appendChild(a);
-				a.click();
-				a.remove();
-				window.URL.revokeObjectURL(url);
-
-				statusMessage = 'Успешно! Скрипт apply_tags.sh скачан.';
-				statusColor = 'green';
-			} else {
-				outputText = await response.text();
-				statusMessage = 'Ответ от ИИ-агента:';
-				statusColor = '#333';
-			}
-		} catch (error: any) {
-			statusMessage = `Произошла ошибка: ${error.message}`;
-			statusColor = 'red';
-		} finally {
-			isPending = false;
-		}
-	}
 </script>
 
 <div class="container">
-	<h2>Генератор тегов медиатеки</h2>
+	<h2>Генератор тегов медиатеки v2.2</h2>
 
-	{#if !isAuthorized}
+	{#if !state.isAuthorized}
 		<div class="auth-box">
-			<label for="token-input">🔑 Требуется авторизация (введите IAM-токен Yandex Cloud):</label>
+			<label for="token-input">🔑 Введите IAM-токен Yandex Cloud:</label>
 			<div class="token-row">
-				<input
-					type="password"
-					id="token-input"
-					placeholder="t1.9euelZq..."
-					bind:value={iamToken}
-				/>
-				<button class="btn-auth" onclick={loginWithToken} disabled={isPending || !iamToken.trim()}>
-					Войти
-				</button>
+				<input type="password" id="token-input" placeholder="t1.9euelZq..." bind:value={state.iamToken} />
+				<button onclick={() => actions.login()}>Войти</button>
 			</div>
 		</div>
 	{:else}
-		<!-- Ссылка «Выйти» с иконкой из bootstrap-icons в правом верхнем углу -->
-		<button class="logout-link" onclick={clearToken} title="Выйти из сессии">
+		<button class="logout-link" onclick={() => actions.clearToken()}>
 			<i class="bi bi-box-arrow-right"></i> Выйти
 		</button>
 
-		<div class="session-info">
-			<span>Сессия активна ({playlists.length} плейлистов найдено в облаке)</span>
+		<div class="tabs">
+			<button class="tab-btn" class:active={state.activeTab === 'tagger'} onclick={() => state.activeTab = 'tagger'}>🎙 Разметка треков</button>
+			<button class="tab-btn" class:active={state.activeTab === 'tags_config'} onclick={() => state.activeTab = 'tags_config'}>🏷 Глобальные теги</button>
+			<button class="tab-btn" class:active={state.activeTab === 'instructions'} onclick={() => state.activeTab = 'instructions'}>⚙️ Инструкции ИИ ({state.instructions.length})</button>
 		</div>
 
-		<div class="form-group">
-			<label for="playlist-search">🔍 Выберите или найдите YAML-плейлист:</label>
-			<input
-				type="text"
-				id="playlist-search"
-				list="playlist-options"
-				placeholder="Начните вводить имя..."
-				bind:value={selectedPlaylistName}
-				oninput={handlePlaylistChange}
-			/>
-			<datalist id="playlist-options">
-				{#each playlists as item}
-					<option value={item}></option>
-				{/each}
-			</datalist>
-		</div>
+		<!-- ВКЛАДКА 1: РАЗМЕТКА -->
+		{#if state.activeTab === 'tagger'}
+			<div class="form-group">
+				<label for="playlist-search">🔍 Выберите YAML-плейлист:</label>
+				<input id="playlist-search" type="text" placeholder="Начните вводить имя..." list="playlist-options" bind:value={state.selectedPlaylist} oninput={(e) => actions.handlePlaylistChange((e.target as HTMLInputElement).value)} />
+				<datalist id="playlist-options">
+					{#each state.playlists as item}<option value={item}></option>{/each}
+				</datalist>
+			</div>
 
-		<div class="form-group">
-			<label for="query-input">Ваш запрос к ИИ-агенту:</label>
-			<input type="text" id="query-input" bind:value={query} />
-		</div>
+			<div class="form-group">
+				<label for="query-input">Задание для ИИ-агента:</label>
+				<input id="query-input" type="text" bind:value={state.query} />
+			</div>
 
-		<div class="form-group">
-			<label for="yaml-input">Содержимое YAML-плейлиста (можно сократить):</label>
-			<textarea id="yaml-input" class="code-input" rows="12" bind:value={yamlData}></textarea>
-		</div>
+			<div class="form-group">
+				<label for="yaml-input">Фрагмент YAML-данных:</label>
+				<textarea id="yaml-input" class="code-input" rows="12" bind:value={state.yamlData}></textarea>
+			</div>
 
-		<button onclick={processRequest} disabled={isPending}> Отправить запрос </button>
+			<button onclick={() => actions.processRequest()} disabled={state.isPending}> Сгенерировать .sh скрипт </button>
+		
+		<!-- ВКЛАДКА 2: ГЛОБАЛЬНЫЕ ТЕГИ -->
+		{:else if state.activeTab === 'tags_config'}
+			<div class="expert-panel">
+				<h3>✍️ Архивные метаданные (Применятся ко всему списку)</h3>
+				<div class="grid">
+					<div><label for="exp-artist">Исполнитель:</label><input id="exp-artist" type="text" bind:value={state.expertArtist} /></div>
+					<div><label for="exp-composer">Композитор:</label><input id="exp-composer" type="text" bind:value={state.expertComposer} /></div>
+					<div><label for="exp-album">Альбом:</label><input id="exp-album" type="text" bind:value={state.expertAlbum} /></div>
+					<div><label for="exp-genre">Жанр:</label><input id="exp-genre" type="text" bind:value={state.expertGenre} /></div>
+					<div><label for="exp-year">Год издания:</label><input id="exp-year" type="text" bind:value={state.expertReleaseYear} /></div>
+					<div><label for="exp-pub">Издатель:</label><input id="exp-pub" type="text" bind:value={state.expertPublisher} /></div>
+				</div>
+
+				<h3 style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px;">🎼 Пользовательские фреймы (TXXX)</h3>
+				<div class="grid">
+					<div><label for="exp-inst">Инструмент:</label><input id="exp-inst" type="text" bind:value={state.expertInstrument} /></div>
+					<div><label for="exp-style">Стиль:</label><input id="exp-style" type="text" bind:value={state.expertStyle} /></div>
+					<div><label for="exp-mood">Настроение:</label><input id="exp-mood" type="text" bind:value={state.expertMood} /></div>
+					<div><label for="exp-period">Эпоха:</label><input id="exp-period" type="text" bind:value={state.expertPeriod} /></div>
+				</div>
+			</div>
+
+		<!-- ВКЛАДКА 3: ИНСТРУКЦИИ -->
+		{:else if state.activeTab === 'instructions'}
+			<div class="form-group">
+				<label for="inst-select">📄 Выберите системную инструкцию из бакета:</label>
+				<select id="inst-select" bind:value={state.selectedInstruction} onchange={() => actions.loadInstructionText(state.selectedInstruction)}>
+					{#each state.instructions as inst}
+						<option value={inst}>{inst}</option>
+					{/each}
+				</select>
+			</div>
+
+			<div class="form-group">
+				<label for="inst-text">Содержимое промпта:</label>
+				<textarea id="inst-text" class="code-input" rows="15" bind:value={state.currentInstructionText}></textarea>
+			</div>
+		{/if}
 	{/if}
 
-	{#if statusMessage}
-		<div id="status" style="color: {statusColor}">{statusMessage}</div>
-	{/if}
-
-	{#if outputText}
-		<pre id="output">{outputText}</pre>
-	{/if}
+	{#if state.statusMessage}<div id="status" style="color: {state.statusColor}">{state.statusMessage}</div>{/if}
+	{#if state.outputText}<pre id="output">{state.outputText}</pre>{/if}
 </div>
 
 <style>
-	.container { 
-		position: relative; /* Чтобы спозиционировать ссылку Выйти относительно контейнера */
-		background: #fff; 
-		padding: 25px; 
-		border-radius: 8px; 
-		box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
-		width: 100%; 
-		max-width: 800px; 
-	}
-	
-	/* Кнопка-ссылка выхода в правом верхнем углу */
-	.logout-link {
-		position: absolute;
-		top: 25px;
-		right: 25px;
-		background: none;
-		border: none;
-		color: #dc3545;
-		cursor: pointer;
-		font-size: 14px;
-		font-weight: normal;
-		width: auto;
-		padding: 0;
-		display: inline-flex;
-		align-items: center;
-		gap: 5px;
-	}
-	.logout-link:hover {
-		color: #bd2130;
-		background: none;
-		text-decoration: underline;
-	}
-
-	.auth-box { background: #fff3cd; border: 1px solid #ffeeba; padding: 20px; border-radius: 6px; margin-bottom: 15px; text-align: left; }
+	.container { position: relative; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 100%; max-width: 800px; }
+	.logout-link { position: absolute; top: 25px; right: 25px; background: none; border: none; color: #dc3545; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; width: auto; font-size: 14px; }
+	.tabs { display: flex; gap: 5px; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
+	.tab-btn { background: #f1f1f1; border: 1px solid #ddd; border-bottom: none; padding: 10px 20px; cursor: pointer; border-radius: 4px 4px 0 0; font-weight: bold; color: #555; width: auto; font-size: 14px; }
+	.tab-btn.active { background: #007bff; color: white; border-color: #007bff; }
+	.expert-panel { text-align: left; }
+	.expert-panel h3 { margin-top: 0; margin-bottom: 15px; color: #222; font-size: 16px; font-weight: bold; }
+	.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+	.auth-box { background: #fff3cd; padding: 20px; border-radius: 6px; text-align: left; }
 	.token-row { display: flex; gap: 10px; margin-top: 8px; }
-	.token-row input { flex: 1; }
-	.btn-auth { width: auto; padding: 0 25px; }
-	
-	.session-info { 
-		display: flex; 
-		justify-content: space-between; 
-		align-items: center; 
-		background: #d4edda; 
-		color: #155724; 
-		padding: 8px 15px; 
-		border-radius: 4px; 
-		margin-bottom: 20px; 
-		font-size: 14px; 
-		text-align: left;
-	}
-	
-	.form-group { margin-bottom: 20px; }
-	label { display: block; font-weight: bold; margin-bottom: 8px; color: #333; text-align: left; }
-	input[type='text'], input[type='password'], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit; }
-	textarea { resize: vertical; }
-	.code-input { font-family: 'Courier New', Courier, monospace; font-size: 14px; background-color: #fafafa; }
-	
+	.form-group { margin-bottom: 15px; text-align: left; }
+	label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; font-size: 14px; }
+	input[type='text'], input[type='password'], select, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-family: inherit; font-size: 14px; }
+	.code-input { font-family: 'Courier New', monospace; font-size: 13px; background-color: #fafafa; }
 	button { background-color: #007bff; color: white; padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; }
 	button:hover { background-color: #0056b3; }
 	button:disabled { background-color: #cccccc; cursor: not-allowed; }
-	
 	#status { margin-top: 15px; font-weight: bold; text-align: left; }
-	#output { margin-top: 20px; padding: 15px; background: #e9ecef; border-left: 4px solid #007bff; border-radius: 4px; white-space: pre-wrap; text-align: left; font-family: 'Courier New', Courier, monospace; }
+	#output { margin-top: 20px; padding: 15px; background: #e9ecef; border-left: 4px solid #007bff; white-space: pre-wrap; text-align: left; font-family: 'Courier New', monospace; }
 </style>

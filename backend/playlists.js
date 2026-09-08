@@ -1,12 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 
-// 💡 Исправлено: Напрямую указываем явную ручную точку монтирования в функции
-const MOUNT_PATH = '/function/storage/playlists'; 
+const STORAGE_ROOT = '/function/storage';
+const PLAYLISTS_PATH = path.join(STORAGE_ROOT, 'playlists'); 
+const INSTRUCTIONS_PATH = path.join(STORAGE_ROOT, 'instructions'); 
 
-/**
- * Точка входа Cloud Function
- */
 exports.handler = async function (event, context) {
     const method = event.httpMethod || event.requestContext?.http?.method || '';
     if (method !== 'GET') {
@@ -15,49 +13,43 @@ exports.handler = async function (event, context) {
 
     const queryParams = event.queryStringParameters || {};
     const fileName = queryParams.name;
+    const type = queryParams.type || 'playlist'; // 'playlist' или 'instruction'
+
+    const targetDir = type === 'instruction' ? INSTRUCTIONS_PATH : PLAYLISTS_PATH;
 
     try {
-        // Проверяем физическое наличие смонтированной директории
-        if (!fs.existsSync(MOUNT_PATH)) {
-            return _jsonResponse(500, { 
-                error: `Директория хранения ${MOUNT_PATH} недоступна. Проверьте параметры флага --storage-mounts в скрипте деплоя.` 
-            });
+        if (!fs.existsSync(targetDir)) {
+            return _jsonResponse(500, { error: `Директория хранения ${targetDir} недоступна.` });
         }
 
-        // РЕЖИМ 1: Чтение содержимого конкретного выбранного файла
+        // РЕЖИМ 1: Чтение содержимого конкретного файла
         if (fileName) {
             const safeName = path.basename(fileName);
-            const filePath = path.join(MOUNT_PATH, safeName);
+            const filePath = path.join(targetDir, safeName);
 
             if (!fs.existsSync(filePath)) {
-                return _jsonResponse(404, { error: `Файл ${safeName} не найден в вашем бакете.` });
+                return _jsonResponse(404, { error: `Файл ${safeName} не найден.` });
             }
 
             const fileContent = fs.readFileSync(filePath, 'utf-8');
             return {
                 statusCode: 200,
-                headers: { 
-                    "Content-Type": "text/yaml; charset=utf-8",
-                    "Cache-Control": "no-cache"
-                },
+                headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache" },
                 body: fileContent
             };
         }
 
-        // РЕЖИМ 2: Возврат списка имен всех YAML-файлов
-        const files = fs.readdirSync(MOUNT_PATH);
-        const yamlPlaylists = files.filter(file => {
+        // РЕЖИМ 2: Возврат списка файлов
+        const files = fs.readdirSync(targetDir);
+        const filteredFiles = files.filter(file => {
             const ext = path.extname(file).toLowerCase();
-            return ext === '.yaml' || ext === '.yml';
+            return ext === '.yaml' || ext === '.yml' || ext === '.txt' || ext === '.md';
         });
 
         return {
             statusCode: 200,
-            headers: { 
-                "Content-Type": "application/json; charset=utf-8",
-                "Cache-Control": "no-cache"
-            },
-            body: JSON.stringify(yamlPlaylists)
+            headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" },
+            body: JSON.stringify(filteredFiles)
         };
 
     } catch (e) {
