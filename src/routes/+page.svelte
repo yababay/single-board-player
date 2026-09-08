@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { state, actions } from './main.svelte';
+	import Genre from '$lib/components/Genre.svelte';
 
 	onMount(() => {
 		actions.checkSession();
@@ -51,34 +52,37 @@
 
 			<button onclick={() => actions.processRequest()} disabled={state.isPending}> Сгенерировать .sh скрипт </button>
 		
-		<!-- ВКЛАДКА 2: АВТОМАТИЧЕСКАЯ ПАНЕЛЬ ТЕГОВ С ХРАНЕНИЕМ И СБРОСОМ -->
+		<!-- ВКЛАДКА 2: АВТОМАТИЧЕСКАЯ ПАНЕЛЬ ТЕГОВ С УМНЫМ СЕЛЕКТОМ ЖАНРОВ -->
 		{:else if state.activeTab === 'tags_config'}
 			<div class="expert-panel">
 				<h3>✍️ Архивные метаданные медиатеки</h3>
 				<div class="grid">
 					{#each state.expertTags as tag, i}
-						<div class="form-group">
-							<label for="tag-{tag.id}">{tag.label} ({tag.type === 'txxx' ? 'TXXX:' : ''}{tag.flag}):</label>
-							<!-- 💡 ДОБАВЛЕНО: oninput для сохранения значения в localStorage на лету -->
-							<input 
-								id="tag-{tag.id}" 
-								type="text" 
-								bind:value={state.expertTags[i].value} 
-								placeholder={tag.placeholder}
-								oninput={(e) => actions.saveTagValue(tag.id, (e.target as HTMLInputElement).value)}
-							/>
-						</div>
+						<!-- 💡 ИСПРАВЛЕНИЕ: Обычные текстовые инпуты рендерим для всех полей, кроме жанра -->
+						{#if tag.id !== 'genre'}
+							<div class="form-group">
+								<label for="tag-{tag.id}">{tag.label} ({tag.type === 'txxx' ? 'TXXX:' : ''}{tag.flag}):</label>
+								<input 
+									id="tag-{tag.id}" 
+									type="text" 
+									bind:value={state.expertTags[i].value} 
+									placeholder={tag.placeholder}
+									oninput={(e) => actions.saveTagValue(tag.id, (e.target as HTMLInputElement).value)}
+								/>
+							</div>
+						{:else}
+							<!-- 💡 Вместо инпута вставляем наш новый изолированный компонент селекта -->
+							<Genre />
+						{/if}
 					{/each}
 				</div>
 				
-				<!-- 💡 НОВАЯ КНОПКА: Очистка вкладки -->
 				<div class="action-row">
 					<button class="btn-clear" onclick={() => actions.clearExpertTags()}>
 						<i class="bi bi-trash"></i> Очистить все теги
 					</button>
 				</div>
 				
-				<!-- p class="hint-text">💡 Значения полей сохраняются в памяти браузера и не пропадут при обновлении страницы по F5.</p -->
 			</div>
 		
 		<!-- ВКЛАДКА 3: ИНСТРУКЦИИ -->
