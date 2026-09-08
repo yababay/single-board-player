@@ -1,0 +1,890 @@
+[
+  {
+    "id": 0,
+    "english": "Blues",
+    "russian": "Блюз",
+    "visible": true
+  },
+  {
+    "id": 1,
+    "english": "Classic Rock",
+    "russian": "Классический рок",
+    "visible": true
+  },
+  {
+    "id": 2,
+    "english": "Country",
+    "russian": "Кантри",
+    "visible": true
+  },
+  {
+    "id": 3,
+    "english": "Dance",
+    "russian": "Танцевальная",
+    "visible": true
+  },
+  {
+    "id": 4,
+    "english": "Disco",
+    "russian": "Диско",
+    "visible": false
+  },
+  {
+    "id": 5,
+    "english": "Funk",
+    "russian": "Фанк",
+    "visible": false
+  },
+  {
+    "id": 6,
+    "english": "Grunge",
+    "russian": "Гранж",
+    "visible": false
+  },
+  {
+    "id": 7,
+    "english": "Hip-Hop",
+    "russian": "Хип-хоп",
+    "visible": true
+  },
+  {
+    "id": 8,
+    "english": "Jazz",
+    "russian": "Джаз",
+    "visible": true
+  },
+  {
+    "id": 9,
+    "english": "Metal",
+    "russian": "Метал",
+    "visible": true
+  },
+  {
+    "id": 10,
+    "english": "New Age",
+    "russian": "Нью-эйдж",
+    "visible": false
+  },
+  {
+    "id": 11,
+    "english": "Oldies",
+    "russian": "Ретро",
+    "visible": false
+  },
+  {
+    "id": 12,
+    "english": "Other",
+    "russian": "Другое",
+    "visible": false
+  },
+  {
+    "id": 13,
+    "english": "Pop",
+    "russian": "Поп-музыка",
+    "visible": true
+  },
+  {
+    "id": 14,
+    "english": "R&B",
+    "russian": "Ритм-энд-блюз",
+    "visible": false
+  },
+  {
+    "id": 15,
+    "english": "Rap",
+    "russian": "Рэп",
+    "visible": false
+  },
+  {
+    "id": 16,
+    "english": "Reggae",
+    "russian": "Регги",
+    "visible": false
+  },
+  {
+    "id": 17,
+    "english": "Rock",
+    "russian": "Рок",
+    "visible": true
+  },
+  {
+    "id": 18,
+    "english": "Techno",
+    "russian": "Техно",
+    "visible": false
+  },
+  {
+    "id": 19,
+    "english": "Industrial",
+    "russian": "Индастриал",
+    "visible": false
+  },
+  {
+    "id": 20,
+    "english": "Alternative",
+    "russian": "Альтернатива",
+    "visible": false
+  },
+  {
+    "id": 21,
+    "english": "Ska",
+    "russian": "Ска",
+    "visible": false
+  },
+  {
+    "id": 22,
+    "english": "Death Metal",
+    "russian": "Дэт-метал",
+    "visible": false
+  },
+  {
+    "id": 23,
+    "english": "Pranks",
+    "russian": "Розыгрыши",
+    "visible": false
+  },
+  {
+    "id": 24,
+    "english": "Soundtrack",
+    "russian": "Саундтрек",
+    "visible": true
+  },
+  {
+    "id": 25,
+    "english": "Euro-Techno",
+    "russian": "Евро-техно",
+    "visible": false
+  },
+  {
+    "id": 26,
+    "english": "Ambient",
+    "russian": "Эмбиент",
+    "visible": true
+  },
+  {
+    "id": 27,
+    "english": "Trip-Hop",
+    "russian": "Трип-хоп",
+    "visible": false
+  },
+  {
+    "id": 28,
+    "english": "Vocal",
+    "russian": "Вокал",
+    "visible": false
+  },
+  {
+    "id": 29,
+    "english": "Jazz+Funk",
+    "russian": "Джаз-фанк",
+    "visible": false
+  },
+  {
+    "id": 30,
+    "english": "Fusion",
+    "russian": "Фьюжн",
+    "visible": false
+  },
+  {
+    "id": 31,
+    "english": "Trance",
+    "russian": "Транс",
+    "visible": false
+  },
+  {
+    "id": 32,
+    "english": "Classical",
+    "russian": "Классическая музыка",
+    "visible": true
+  },
+  {
+    "id": 33,
+    "english": "Instrumental",
+    "russian": "Инструментальная музыка",
+    "visible": true
+  },
+  {
+    "id": 34,
+    "english": "Acid",
+    "russian": "Эйсид",
+    "visible": false
+  },
+  {
+    "id": 35,
+    "english": "House",
+    "russian": "Хаус",
+    "visible": true
+  },
+  {
+    "id": 36,
+    "english": "Game",
+    "russian": "Музыка из игр",
+    "visible": false
+  },
+  {
+    "id": 37,
+    "english": "Sound Clip",
+    "russian": "Звуковой клип",
+    "visible": false
+  },
+  {
+    "id": 38,
+    "english": "Gospel",
+    "russian": "Госпел",
+    "visible": false
+  },
+  {
+    "id": 39,
+    "english": "Noise",
+    "russian": "Нойз",
+    "visible": false
+  },
+  {
+    "id": 40,
+    "english": "Alternative Rock",
+    "russian": "Альтернативный рок",
+    "visible": false
+  },
+  {
+    "id": 41,
+    "english": "Bass",
+    "russian": "Басс",
+    "visible": false
+  },
+  {
+    "id": 42,
+    "english": "Soul",
+    "russian": "Соул",
+    "visible": false
+  },
+  {
+    "id": 43,
+    "english": "Punk",
+    "russian": "Панк",
+    "visible": false
+  },
+  {
+    "id": 44,
+    "english": "Space",
+    "russian": "Спейс",
+    "visible": false
+  },
+  {
+    "id": 45,
+    "english": "Meditative",
+    "russian": "Медитативная",
+    "visible": false
+  },
+  {
+    "id": 46,
+    "english": "Instrumental Pop",
+    "russian": "Инструментальный поп",
+    "visible": false
+  },
+  {
+    "id": 47,
+    "english": "Instrumental Rock",
+    "russian": "Инструментальный рок",
+    "visible": false
+  },
+  {
+    "id": 48,
+    "english": "Ethnic",
+    "russian": "Этническая",
+    "visible": false
+  },
+  {
+    "id": 49,
+    "english": "Gothic",
+    "russian": "Готика",
+    "visible": false
+  },
+  {
+    "id": 50,
+    "english": "Darkwave",
+    "russian": "Дарквейв",
+    "visible": false
+  },
+  {
+    "id": 51,
+    "english": "Techno-Industrial",
+    "russian": "Техно-индастриал",
+    "visible": false
+  },
+  {
+    "id": 52,
+    "english": "Electronic",
+    "russian": "Электронная музыка",
+    "visible": true
+  },
+  {
+    "id": 53,
+    "english": "Pop-Folk",
+    "russian": "Поп-фолк",
+    "visible": false
+  },
+  {
+    "id": 54,
+    "english": "Eurodance",
+    "russian": "Евродэнс",
+    "visible": false
+  },
+  {
+    "id": 55,
+    "english": "Dream",
+    "russian": "Дрим-транс",
+    "visible": false
+  },
+  {
+    "id": 56,
+    "english": "Southern Rock",
+    "russian": "Южный рок",
+    "visible": false
+  },
+  {
+    "id": 57,
+    "english": "Comedy",
+    "russian": "Комедия",
+    "visible": false
+  },
+  {
+    "id": 58,
+    "english": "Cult",
+    "russian": "Культовая",
+    "visible": false
+  },
+  {
+    "id": 59,
+    "english": "Gangsta",
+    "russian": "Гангста-рэп",
+    "visible": false
+  },
+  {
+    "id": 60,
+    "english": "Top 40",
+    "russian": "Топ-40",
+    "visible": false
+  },
+  {
+    "id": 61,
+    "english": "Christian Rap",
+    "russian": "Христианский рэп",
+    "visible": false
+  },
+  {
+    "id": 62,
+    "english": "Pop/Funk",
+    "russian": "Поп-фанк",
+    "visible": false
+  },
+  {
+    "id": 63,
+    "english": "Jungle",
+    "russian": "Джангл",
+    "visible": false
+  },
+  {
+    "id": 64,
+    "english": "Native American",
+    "russian": "Музыка коренных американцев",
+    "visible": false
+  },
+  {
+    "id": 65,
+    "english": "Cabaret",
+    "russian": "Кабаре",
+    "visible": false
+  },
+  {
+    "id": 66,
+    "english": "New Wave",
+    "russian": "Новая волна",
+    "visible": false
+  },
+  {
+    "id": 67,
+    "english": "Psychadelic",
+    "russian": "Психоделика",
+    "visible": false
+  },
+  {
+    "id": 68,
+    "english": "Rave",
+    "russian": "Рейв",
+    "visible": false
+  },
+  {
+    "id": 69,
+    "english": "Showtunes",
+    "russian": "Мюзиклы",
+    "visible": false
+  },
+  {
+    "id": 70,
+    "english": "Trailer",
+    "russian": "Трейлер",
+    "visible": false
+  },
+  {
+    "id": 71,
+    "english": "Lo-Fi",
+    "russian": "Лоу-фай",
+    "visible": true
+  },
+  {
+    "id": 72,
+    "english": "Tribal",
+    "russian": "Трайбл",
+    "visible": false
+  },
+  {
+    "id": 73,
+    "english": "Acid Punk",
+    "russian": "Эйсид-панк",
+    "visible": false
+  },
+  {
+    "id": 74,
+    "english": "Acid Jazz",
+    "russian": "Эйсид-джаз",
+    "visible": false
+  },
+  {
+    "id": 75,
+    "english": "Polka",
+    "russian": "Полька",
+    "visible": false
+  },
+  {
+    "id": 76,
+    "english": "Retro",
+    "russian": "Ретро-музыка",
+    "visible": true
+  },
+  {
+    "id": 77,
+    "english": "Musical",
+    "russian": "Мюзикл",
+    "visible": false
+  },
+  {
+    "id": 78,
+    "english": "Rock & Roll",
+    "russian": "Рок-н-ролл",
+    "visible": true
+  },
+  {
+    "id": 79,
+    "english": "Hard Rock",
+    "russian": "Хард-рок",
+    "visible": true
+  },
+  {
+    "id": 80,
+    "english": "Folk",
+    "russian": "Фолк / Народная",
+    "visible": true
+  },
+  {
+    "id": 81,
+    "english": "Folk-Rock",
+    "russian": "Фолк-рок",
+    "visible": false
+  },
+  {
+    "id": 82,
+    "english": "National Folk",
+    "russian": "Национальный фолк",
+    "visible": false
+  },
+  {
+    "id": 83,
+    "english": "Swing",
+    "russian": "Свинг",
+    "visible": false
+  },
+  {
+    "id": 84,
+    "english": "Fast Fusion",
+    "russian": "Фаст-фьюжн",
+    "visible": false
+  },
+  {
+    "id": 85,
+    "english": "Bebob",
+    "russian": "Бибоп",
+    "visible": false
+  },
+  {
+    "id": 86,
+    "english": "Latin",
+    "russian": "Латино",
+    "visible": false
+  },
+  {
+    "id": 87,
+    "english": "Revival",
+    "russian": "Ривайвл",
+    "visible": false
+  },
+  {
+    "id": 88,
+    "english": "Celtic",
+    "russian": "Кельтская",
+    "visible": false
+  },
+  {
+    "id": 89,
+    "english": "Bluegrass",
+    "russian": "Блюграсс",
+    "visible": false
+  },
+  {
+    "id": 90,
+    "english": "Avantgarde",
+    "russian": "Авангард",
+    "visible": false
+  },
+  {
+    "id": 91,
+    "english": "Gothic Rock",
+    "russian": "Готик-рок",
+    "visible": false
+  },
+  {
+    "id": 92,
+    "english": "Progressive Rock",
+    "russian": "Прогрессивный рок",
+    "visible": false
+  },
+  {
+    "id": 93,
+    "english": "Psychedelic Rock",
+    "russian": "Психоделический рок",
+    "visible": false
+  },
+  {
+    "id": 94,
+    "english": "Symphonic Rock",
+    "russian": "Симфонический рок",
+    "visible": true
+  },
+  {
+    "id": 95,
+    "english": "Slow Rock",
+    "russian": "Медленный рок",
+    "visible": false
+  },
+  {
+    "id": 96,
+    "english": "Big Band",
+    "russian": "Биг-бэнд",
+    "visible": false
+  },
+  {
+    "id": 97,
+    "english": "Chorus",
+    "russian": "Хор",
+    "visible": true
+  },
+  {
+    "id": 98,
+    "english": "Easy Listening",
+    "russian": "Легкая музыка",
+    "visible": false
+  },
+  {
+    "id": 99,
+    "english": "Acoustic",
+    "russian": "Акустика",
+    "visible": false
+  },
+  {
+    "id": 100,
+    "english": "Humour",
+    "russian": "Юмор",
+    "visible": false
+  },
+  {
+    "id": 101,
+    "english": "Speech",
+    "russian": "Речь",
+    "visible": false
+  },
+  {
+    "id": 102,
+    "english": "Chanson",
+    "russian": "Шансон / Старинная песня",
+    "visible": true
+  },
+  {
+    "id": 103,
+    "english": "Opera",
+    "russian": "Опера",
+    "visible": true
+  },
+  {
+    "id": 104,
+    "english": "Chamber Music",
+    "russian": "Камерная музыка",
+    "visible": true
+  },
+  {
+    "id": 105,
+    "english": "Sonata",
+    "russian": "Соната",
+    "visible": true
+  },
+  {
+    "id": 106,
+    "english": "Symphony",
+    "russian": "Симфония",
+    "visible": true
+  },
+  {
+    "id": 107,
+    "english": "Bootleg",
+    "russian": "Бутлег",
+    "visible": false
+  },
+  {
+    "id": 108,
+    "english": "Satire",
+    "russian": "Сатира",
+    "visible": false
+  },
+  {
+    "id": 109,
+    "english": "Slow Jam",
+    "russian": "Слоу-джем",
+    "visible": false
+  },
+  {
+    "id": 110,
+    "english": "Club",
+    "russian": "Клубная",
+    "visible": false
+  },
+  {
+    "id": 111,
+    "english": "Tango",
+    "russian": "Танго",
+    "visible": false
+  },
+  {
+    "id": 112,
+    "english": "Samba",
+    "russian": "Самба",
+    "visible": false
+  },
+  {
+    "id": 113,
+    "english": "Folklore",
+    "russian": "Фольклор",
+    "visible": false
+  },
+  {
+    "id": 114,
+    "english": "Ballad",
+    "russian": "Баллада",
+    "visible": false
+  },
+  {
+    "id": 115,
+    "english": "Power Ballad",
+    "russian": "Пауэр-баллада",
+    "visible": false
+  },
+  {
+    "id": 116,
+    "english": "Rhythmic Soul",
+    "russian": "Ритмик-соул",
+    "visible": false
+  },
+  {
+    "id": 117,
+    "english": "Freestyle",
+    "russian": "Фристайл",
+    "visible": false
+  },
+  {
+    "id": 118,
+    "english": "Duet",
+    "russian": "Дуэт",
+    "visible": false
+  },
+  {
+    "id": 119,
+    "english": "Punk Rock",
+    "russian": "Панк-рок",
+    "visible": false
+  },
+  {
+    "id": 120,
+    "english": "Drum Solo",
+    "russian": "Барабанное соло",
+    "visible": false
+  },
+  {
+    "id": 121,
+    "english": "A Cappella",
+    "russian": "Акапелла",
+    "visible": false
+  },
+  {
+    "id": 122,
+    "english": "Euro-House",
+    "russian": "Евро-хаус",
+    "visible": false
+  },
+  {
+    "id": 123,
+    "english": "Dance Hall",
+    "russian": "Дэнсхолл",
+    "visible": false
+  },
+  {
+    "id": 124,
+    "english": "Goa",
+    "russian": "Гоа-транс",
+    "visible": false
+  },
+  {
+    "id": 125,
+    "english": "Drum & Bass",
+    "russian": "Драм-н-бейс",
+    "visible": true
+  },
+  {
+    "id": 126,
+    "english": "Club-House",
+    "russian": "Клаб-хаус",
+    "visible": false
+  },
+  {
+    "id": 127,
+    "english": "Hardcore Techno",
+    "russian": "Хардкор-техно",
+    "visible": false
+  },
+  {
+    "id": 128,
+    "english": "Terror",
+    "russian": "Террор-кор",
+    "visible": false
+  },
+  {
+    "id": 129,
+    "english": "Indie",
+    "russian": "Инди",
+    "visible": true
+  },
+  {
+    "id": 130,
+    "english": "BritPop",
+    "russian": "Брит-поп",
+    "visible": false
+  },
+  {
+    "id": 131,
+    "english": "Negerpunk",
+    "russian": "Афро-панк",
+    "visible": false
+  },
+  {
+    "id": 132,
+    "english": "Polsk Punk",
+    "russian": "Польский панк",
+    "visible": false
+  },
+  {
+    "id": 133,
+    "english": "Beat",
+    "russian": "Бит",
+    "visible": false
+  },
+  {
+    "id": 134,
+    "english": "Christian Gangsta Rap",
+    "russian": "Христианский гангста-рэп",
+    "visible": false
+  },
+  {
+    "id": 135,
+    "english": "Heavy Metal",
+    "russian": "Хэви-метал",
+    "visible": false
+  },
+  {
+    "id": 136,
+    "english": "Black Metal",
+    "russian": "Блэк-метал",
+    "visible": false
+  },
+  {
+    "id": 137,
+    "english": "Crossover",
+    "russian": "Кроссовер",
+    "visible": false
+  },
+  {
+    "id": 138,
+    "english": "Contemporary Christian",
+    "russian": "Современная христианская",
+    "visible": false
+  },
+  {
+    "id": 139,
+    "english": "Christian Rock",
+    "russian": "Христианский рок",
+    "visible": false
+  },
+  {
+    "id": 140,
+    "english": "Merengue",
+    "russian": "Меренге",
+    "visible": false
+  },
+  {
+    "id": 141,
+    "english": "Salsa",
+    "russian": "Сальса",
+    "visible": false
+  },
+  {
+    "id": 142,
+    "english": "Thrash Metal",
+    "russian": "Трэш-метал",
+    "visible": false
+  },
+  {
+    "id": 143,
+    "english": "Anime",
+    "russian": "Аниме",
+    "visible": false
+  },
+  {
+    "id": 144,
+    "english": "Jpop",
+    "russian": "Джей-поп",
+    "visible": false
+  },
+  {
+    "id": 145,
+    "english": "Synthpop",
+    "russian": "Синти-поп",
+    "visible": false
+  },
+  {
+    "id": 146,
+    "english": "Abstract",
+    "russian": "Абстракт",
+    "visible": false
+  },
+  {
+    "id": 147,
+    "english": "Art Rock",
+    "russian": "Арт-рок",
+    "visible": false
+  }
+]
