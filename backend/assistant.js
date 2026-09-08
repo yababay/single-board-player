@@ -41,15 +41,14 @@ exports.handler = async function (event, context) {
     }
 
     // Если ответ содержит наш маркер плоского списка лингвистического агента
-    // Если ответ содержит наш маркер плоского списка лингвистического агента
     if (rawText.includes('|=>')) {
-        const globalTags = body.globalTags || {};
+        // Получаем динамический конфигуратор тегов от фронтенда
+        const clientTags = body.tagsConfig || [];
         
-        // 1. Динамически вычисляем имя скачиваемого файла
         const clientPlaylistName = body.playlistName || "apply_tags.yaml";
         const downloadFileName = clientPlaylistName.replace(/\.yam?l$/i, '.sh');
 
-        let bashScript = "#!/bin/bash\n\n# Скрипт сгенерирован автоматически бэкендом\n\n";
+        let bashScript = "#!/bin/bash\n\n# Скрипт сгенерирован автоматически динамическим бэкендом\n\n";
         
         const lines = rawText.split('\n');
         for (let line of lines) {
@@ -59,32 +58,33 @@ exports.handler = async function (event, context) {
             const filePath = parts[0].trim();
             const cleanTitle = parts[1].trim();
 
-            // 2. Красивая многострочная сборка команды eyeD3 с обратными слэшами
+            // Начинаем многострочную сборку команды eyeD3
             let cmd = `eyeD3 \\\n`;
-            if (globalTags.artist) cmd += `  --artist "${globalTags.artist}" \\\n`;
-            if (globalTags.composer) cmd += `  --composer "${globalTags.composer}" \\\n`;
-            if (globalTags.album) cmd += `  --album "${globalTags.album}" \\\n`;
-            if (globalTags.genre) cmd += `  --genre "${globalTags.genre}" \\\n`;
-            if (globalTags.releaseYear) cmd += `  --release-year "${globalTags.releaseYear}" \\\n`;
             
-            // Стандартный фрейм ID3v2 для издателя (TPUB)
-            if (globalTags.publisher) {
-                cmd += `  --user-text-frame "TPUB:${globalTags.publisher}" \\\n`;
+            // Динамически обходим все теги, заполненные пользователем в интерфейсе
+            for (let tag of clientTags) {
+                if (!tag.value || !tag.value.trim()) continue; // Пропускаем пустые поля
+                
+                const val = tag.value.trim();
+                
+                if (tag.type === 'standard') {
+                    // Обычные теги: --artist, --composer, --release-year
+                    cmd += `  ${tag.flag} "${val}" \\\n`;
+                } else if (tag.type === 'tpub') {
+                    // Тег издателя: TPUB
+                    cmd += `  --user-text-frame "TPUB:${val}" \\\n`;
+                } else if (tag.type === 'txxx') {
+                    // Любые кастомные пользовательские фреймы TXXX (Instrument, Style, Form и т.д.)
+                    cmd += `  --user-text-frame "${tag.flag}:${val}" \\\n`;
+                }
             }
-            
-            // Кастомные фреймы TXXX (Исправлены имена свойств в соответствии с фронтендом)
-            if (globalTags.instrument) cmd += `  --user-text-frame "Instrument:${globalTags.instrument}" \\\n`;
-            if (globalTags.style) cmd += `  --user-text-frame "Style:${globalTags.style}" \\\n`;
-            if (globalTags.mood) cmd += `  --user-text-frame "Mood:${globalTags.mood}" \\\n`;
-            if (globalTags.period) cmd += `  --user-text-frame "Period:${globalTags.period}" \\\n`;
 
-            // Завершаем команду названием трека и путем к файлу (уже без слэша на конце)
+            // Добавляем обязательное название трека и путь к файлу
             cmd += `  --title "${cleanTitle}" "${filePath}"\n`;
 
             bashScript += `${cmd}\n`;
         }
 
-        // Возвращаем файл с кастомным именем в заголовках
         return {
             statusCode: 200,
             headers: {

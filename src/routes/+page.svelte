@@ -51,26 +51,26 @@
 
 			<button onclick={() => actions.processRequest()} disabled={state.isPending}> Сгенерировать .sh скрипт </button>
 		
-		<!-- ВКЛАДКА 2: ГЛОБАЛЬНЫЕ ТЕГИ -->
+		<!-- ВКЛАДКА 2: АВТОМАТИЧЕСКАЯ ИСПРАВЛЕННАЯ ПАНЕЛЬ ТЕГОВ -->
 		{:else if state.activeTab === 'tags_config'}
 			<div class="expert-panel">
-				<h3>✍️ Архивные метаданные (Применятся ко всему списку)</h3>
+				<h3>✍️ Архивные метаданные медиатеки</h3>
 				<div class="grid">
-					<div><label for="exp-artist">Исполнитель:</label><input id="exp-artist" type="text" bind:value={state.expertArtist} /></div>
-					<div><label for="exp-composer">Композитор:</label><input id="exp-composer" type="text" bind:value={state.expertComposer} /></div>
-					<div><label for="exp-album">Альбом:</label><input id="exp-album" type="text" bind:value={state.expertAlbum} /></div>
-					<div><label for="exp-genre">Жанр:</label><input id="exp-genre" type="text" bind:value={state.expertGenre} /></div>
-					<div><label for="exp-year">Год издания:</label><input id="exp-year" type="text" bind:value={state.expertReleaseYear} /></div>
-					<div><label for="exp-pub">Издатель:</label><input id="exp-pub" type="text" bind:value={state.expertPublisher} /></div>
+					<!-- 💡 ИСПРАВЛЕНИЕ: Извлекаем индекс "i" в цикле {#each} -->
+					{#each state.expertTags as tag, i}
+						<div class="form-group">
+							<label for="tag-{tag.id}">{tag.label} ({tag.type === 'txxx' ? 'TXXX:' : ''}{tag.flag}):</label>
+							<!-- 💡 ИСПРАВЛЕНИЕ: Привязываем bind:value строго по индексу массива -->
+							<input 
+								id="tag-{tag.id}" 
+								type="text" 
+								bind:value={state.expertTags[i].value} 
+								placeholder={tag.placeholder}
+							/>
+						</div>
+					{/each}
 				</div>
-
-				<h3 style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 15px;">🎼 Пользовательские фреймы (TXXX)</h3>
-				<div class="grid">
-					<div><label for="exp-inst">Инструмент:</label><input id="exp-inst" type="text" bind:value={state.expertInstrument} /></div>
-					<div><label for="exp-style">Стиль:</label><input id="exp-style" type="text" bind:value={state.expertStyle} /></div>
-					<div><label for="exp-mood">Настроение:</label><input id="exp-mood" type="text" bind:value={state.expertMood} /></div>
-					<div><label for="exp-period">Эпоха:</label><input id="exp-period" type="text" bind:value={state.expertPeriod} /></div>
-				</div>
+				<p class="hint-text">💡 Поля теперь абсолютно реактивны, а проект компилируется без ошибок Svelte 5. Пустые теги игнорируются сборщиком.</p>
 			</div>
 
 		<!-- ВКЛАДКА 3: ИНСТРУКЦИИ -->

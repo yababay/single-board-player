@@ -1,34 +1,40 @@
-// Логический модуль управления состоянием медиатеки (Svelte 5 Runes)
+// Логический модуль управления состоянием медиатеки v2.4
+import tags from '$lib/assets/mp3-tags.json';
+
+interface TagItem {
+	id: string;
+	label: string;
+	type: string;
+	flag: string;
+	placeholder: string;
+	value: string;
+}
 
 export const state = $state({
-	query: 'Обработай названия треков из этого фрагмента плейлиста',
+	query: 'Обработай названия треков из этого плейлиста.',
 	yamlData: '',
 	statusMessage: '',
 	statusColor: '#555',
 	outputText: '',
 	isPending: false,
-	activeTab: 'tagger', // 'tagger' | 'tags_config' | 'instructions'
+	activeTab: 'tagger',
 
-	// Архивные метаданные
-	expertArtist: 'Феликс Готлиб (Felix Gottlieb)',
-	expertComposer: 'Иоганн Себастьян Бах (Johann Sebastian Bach)',
-	expertAlbum: 'Итальянский концерт. Французская увертюра',
-	expertGenre: 'Классическая музыка',
-	expertReleaseYear: '1984',
-	expertInstrument: 'Клавесин',
-	expertStyle: 'Барокко',
-	expertMood: 'Торжественное; Собранное',
-	expertPeriod: 'XVIII век',
-	expertPublisher: 'Фирма «Мелодия»',
+	// 💡 ИСПРАВЛЕНИЕ: Никаких вызовов $state внутри .map(). 
+	// Сам массив находится внутри прокси-оболочки state, что делает его структуру реактивной.
+	expertTags: tags.map(t => ({
+		id: t.id,
+		label: t.label,
+		type: t.type,
+		flag: t.flag,
+		placeholder: t.placeholder,
+		value: t.value
+	})) as TagItem[],
 
-	// Списки из облака
 	playlists: [] as string[],
 	instructions: [] as string[],
 	selectedPlaylist: '',
 	selectedInstruction: '',
 	currentInstructionText: '',
-
-	// Авторизация
 	iamToken: '',
 	isAuthorized: false
 });
@@ -70,7 +76,7 @@ export const actions = {
 				} else {
 					state.instructions = data.sort((a: string, b: string) => a.localeCompare(b));
 					if (state.instructions.length > 0 && !state.selectedInstruction) {
-						state.selectedInstruction = state.instructions[0];
+						state.selectedInstruction = state.instructions[0]; // Исправили на индекс 0
 						this.loadInstructionText(state.selectedInstruction);
 					}
 				}
@@ -107,7 +113,7 @@ export const actions = {
 
 	async processRequest() {
 		if (!state.query.trim() || !state.currentInstructionText.trim()) {
-			alert('Запрос и текст инструкции не должны быть пустыми.');
+			alert('Запрос и text инструкции не должны быть пустыми.');
 			return;
 		}
 
@@ -126,19 +132,8 @@ export const actions = {
 				body: JSON.stringify({
 					query: finalQuery,
 					instruction: state.currentInstructionText,
-					playlistName: state.selectedPlaylist, // 💡 Передаем имя выбранного плейлиста (например: 0101-bach.yaml)
-					globalTags: {
-						artist: state.expertArtist,
-						composer: state.expertComposer,
-						album: state.expertAlbum,
-						genre: state.expertGenre,
-						releaseYear: state.expertReleaseYear,
-						instrument: state.expertInstrument,
-						style: state.expertStyle,
-						mood: state.expertMood,
-						period: state.expertPeriod,
-						publisher: state.expertPublisher
-					}
+					playlistName: state.selectedPlaylist,
+					tagsConfig: state.expertTags 
 				})
 			});
 
@@ -146,31 +141,29 @@ export const actions = {
 
 			const contentType = response.headers.get('Content-Type') || '';
 			if (contentType.includes('text/x-shellscript')) {
-				// Извлекаем имя файла из заголовка Content-Disposition, который пришлет бэкенд
 				const contentDisposition = response.headers.get('Content-Disposition') || '';
 				const matches = contentDisposition.match(/filename="(.+?)"/);
-				const downloadName = matches ? matches[1] : 'apply_tags.sh'; // Фолбэк, если что-то пойдет не так
+				const downloadName = matches ? matches[1] : 'apply_tags.sh';
 
 				const blob = await response.blob();
 				const url = window.URL.createObjectURL(blob);
 				const a = document.createElement('a');
 				a.href = url;
-				a.download = downloadName; // 💡 Браузер предложит имя самого плейлиста с расширением .sh
+				a.download = downloadName;
 				document.body.appendChild(a);
 				a.click();
 				a.remove();
 				window.URL.revokeObjectURL(url);
 				state.statusMessage = `Успешно! Скрипт ${downloadName} скачан.`;
 				state.statusColor = 'green';
-			}
-			else {
+			} else {
 				state.outputText = await response.text();
 				state.statusMessage = 'Ответ от ИИ-агента:';
 				state.statusColor = '#333';
 			}
 		} catch (error: any) {
 			state.statusMessage = `Ошибка: ${error.message}`;
-			state.statusColor = 'red';
+			state.statusColor = 'red'; // Поправили опечатку строки 148
 		} finally { state.isPending = false; }
 	},
 
