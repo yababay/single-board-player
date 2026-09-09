@@ -4,8 +4,9 @@ import yaml
 import psycopg2
 import os
 from sentence_transformers import SentenceTransformer
-from dotenv import load_dotenvload_dotenv()  # This loads the variables from the .env file into os.environ
+from dotenv import load_dotenv
 
+load_dotenv()  # This loads the variables from the .env file into os.environ
 pg_user = os.getenv('PG_USER')
 pg_password = os.getenv('PG_PASSWORD')
 pg_database = os.getenv('PG_DATABASE')
