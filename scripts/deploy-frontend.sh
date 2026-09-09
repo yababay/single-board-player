@@ -40,6 +40,10 @@ aws s3 cp "$BUILD_DIR/_app" "s3://$BUCKET_NAME/_app" \
     --endpoint-url="$YC_S3_ENDPOINT" \
     --recursive \
     --cache-control "public, max-age=31536000, immutable"
+aws s3 cp "$BUILD_DIR/fonts" "s3://$BUCKET_NAME/fonts" \
+    --endpoint-url="$YC_S3_ENDPOINT" \
+    --recursive \
+    --cache-control "public, max-age=31536000, immutable"
 
 # 2. Загружаем точечно корневые файлы сайта без кэша (не трогая файлы .yaml в корне бакета)
 echo "🔹 Обновление корневых файлов сайта (index.html, favicon.svg)..."
@@ -70,4 +74,4 @@ find "$BUILD_DIR" -maxdepth 1 -type f | while read -r file; do
     fi
 done
 
-echo "🎉 Безопасный деплой успешно завершен! Ваши 70 плейлистов в корне бакета в полной сохранности."
+echo "🎉 Безопасный деплой успешно завершен!"
