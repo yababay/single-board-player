@@ -18,6 +18,13 @@ clean_string() {
     sed 's/[[:space:]]\+/_/g'  # Заменяем множественные пробелы на _
 }
 
+# Функция очистки текстовых метаданных (сохраняет пробелы)
+clean_metadata_text() {
+    echo "$1" | \
+    sed -E 's/[^[:alnum:][:space:]\-_.,;:()\/\[\]\{\}\"]//g' | tr -d "'" | \
+    sed 's/[[:cntrl:]]//g'
+}
+
 playlist_counter=0
 
 # Сортированный вывод плейлистов через ls -1
@@ -57,29 +64,20 @@ ls -1 $TARGET_PATTERN 2>/dev/null | while IFS= read -r playlist_path; do
                 ffprobe -v error -show_entries format_tags -of default=noprint_wrappers=1 "$track_line" 2>/dev/null | \
                 while IFS='=' read -r full_key value; do
                     
-                    # Убираем префикс "TAG:" если он есть (зависит от версии ffmpeg)
                     local_key="${full_key#TAG:}"
-                    
-                    # Если ключ начинается с TXXX: (кастомные теги), извлекаем имя самого кастомного тега
-                    # Например: "TXXX:Form" превратится в "Form"
                     if [[ "$local_key" =~ ^TXXX: ]]; then
                         local_key="${local_key#TXXX:}"
                     fi
                     
-                    # Переводим ключ в нижний регистр и заменяем пробелы на подчеркивания для YAML
                     local_key=$(echo "$local_key" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')
                     
-                    # Очищаем значение от пробелов по краям и пропускаем пустые теги
                     value=$(echo "$value" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')
                     [[ -z "$value" ]] && continue
-                    
-                    # Пропускаем технические несемантические теги, если они попадутся
                     [[ "$local_key" =~ ^(track|disc|encoder|major_brand|minor_version|compatible_brands)$ ]] && continue
                     
-                    # Приводим значение к нормам безопасности YAML
-                    value=$(clean_string "$value")
+                    # 🌟 ВОТ ЭТА СТРОКА: Меняем clean_string на clean_metadata_text
+                    value=$(clean_metadata_text "$value")
                     
-                    # Дополнительная очистка жанра (убираем числовые ID в скобках, если остались)
                     if [[ "$local_key" == "genre" ]]; then
                         value=$(echo "$value" | sed -E 's/ \([a-zA-Z0-9 -]+\)$//')
                     fi
@@ -87,7 +85,6 @@ ls -1 $TARGET_PATTERN 2>/dev/null | while IFS= read -r playlist_path; do
                     echo "          ${local_key}: \"${value}\""
                 done
             fi
-	    
             
         else
             echo "      - track_number: $track_counter"

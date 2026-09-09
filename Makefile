@@ -5,5 +5,8 @@ git_local:
 
 git_remote: 
 	git push origin vector
+
+cp_m3u2yaml:
+	cp /usr/local/bin/m3u2yaml scripts/m3u2yaml.sh
 	
-git: git_local git_remote
+git: cp_m3u2yaml git_local git_remote
