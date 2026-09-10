@@ -59,7 +59,7 @@ exports.handler = async function (event, context) {
             const cleanTitle = parts[1].trim();
 
             // Начинаем многострочную сборку команды eyeD3
-            let cmd = `eyeD3 \\\n`;
+            let cmd = `eyeD3 --encoding utf8 --to-v2.4 \\\n`;
             
             // Динамически обходим все теги, заполненные пользователем в интерфейсе
             for (let tag of clientTags) {

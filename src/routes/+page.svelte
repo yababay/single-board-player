@@ -2,7 +2,8 @@
 	import { onMount } from 'svelte';
 	import { state, actions } from './main.svelte';
 	import Genre from '$lib/components/Genre.svelte';
-
+	import PlaylistSelect from '$lib/components/PlaylistSelect.svelte'; // 💡 Импортируем новый компонент
+	
 	onMount(() => {
 		actions.checkSession();
 	});
@@ -32,13 +33,9 @@
 
 		<!-- ВКЛАДКА 1: РАЗМЕТКА -->
 		{#if state.activeTab === 'tagger'}
-			<div class="form-group">
-				<label for="playlist-search">🔍 Выберите YAML-плейлист:</label>
-				<input id="playlist-search" type="text" placeholder="Начните вводить имя..." list="playlist-options" bind:value={state.selectedPlaylist} oninput={(e) => actions.handlePlaylistChange((e.target as HTMLInputElement).value)} />
-				<datalist id="playlist-options">
-					{#each state.playlists as item}<option value={item}></option>{/each}
-				</datalist>
-			</div>
+			
+			<!-- 💡 ВМЕСТО СТАРОГО БЛОКА ВЫБОРА ПЛЕЙЛИСТА ВСТАВЛЯЕМ КОМПОНЕНТ -->
+			<PlaylistSelect />
 
 			<div class="form-group">
 				<label for="query-input">Задание для ИИ-агента:</label>
