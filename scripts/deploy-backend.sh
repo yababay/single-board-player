@@ -32,7 +32,6 @@ if [ "$FUNCTION_NAME" == "assistant" ] || [ -z "$FUNCTION_NAME" ]; then
     mkdir -p "$TMP_DIR/assistant"
     cp "$BACKEND_DIR/assistant.js" "$TMP_DIR/assistant/index.js"
     cp "$BACKEND_DIR/package.json" "$TMP_DIR/assistant/package.json"
-    cp "$BACKEND_DIR/system-instruction.md" "$TMP_DIR/assistant/system-prompt.md"
 
     cd "$TMP_DIR/assistant"
     zip -q -r "../assistant.zip" ./*
