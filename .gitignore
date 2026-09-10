@@ -1,4 +1,7 @@
 etc/
 build/
 *-*/
+*.yaml
+*.txt
+*.sh
 
