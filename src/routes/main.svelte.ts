@@ -1,4 +1,5 @@
 // Логический модуль управления состоянием медиатеки v2.5
+import { dev } from '$app/env';
 import tags from '$lib/assets/mp3-tags.json';
 
 interface TagItem {
@@ -102,6 +103,7 @@ export const actions = {
 		} catch (error: any) {
 			state.statusMessage = `Ошибка поиска: ${error.message}`;
 			state.statusColor = 'red';
+			if(dev) console.error(error);
 		} finally {
 			state.isPending = false;
 		}

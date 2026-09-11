@@ -4,7 +4,7 @@ const FOLDER_ID = process.env.FOLDER_ID;
 const API_KEY = process.env.YANDEX_API_KEY;
 const MODEL_NAME = process.env.MODEL_NAME || "qwen3.6-35b-a3b";
 // Хакерский обход фильтров для базового URL
-const BASE_URL = process.env.BASE_URL || "https" + "://rest-assistant.api.cloud.yandex.net";
+const BASE_URL = process.env.NO_BASE_URL || "https" + "://rest-assistant.api.cloud.yandex.net/v1"
 // Восстановили переменную векторного хранилища из окружения функции
 const VECTOR_STORE_ID = process.env.VECTOR_STORE_ID || process.env.YC_VECTOR_STORE_ID;
 
@@ -41,16 +41,23 @@ exports.handler = async function (event, context) {
             }
         ];
     }
+    // 💡 Формируем базовый объект параметров запроса
+    const apiParams = {
+        model: `gpt://${FOLDER_ID}/${MODEL_NAME}`, 
+        instructions: customInstruction,
+        input: query,
+        temperature: 0.1
+    };
+
+    // 💡 Добавляем свойство tools в объект ТОЛЬКО если оно было сконфигурировано
+    if (toolsConfig) {
+        apiParams.tools = toolsConfig;
+    }
 
     let rawText = "";
     try {
-        const response = await client.responses.create({
-            model: `gpt://${FOLDER_ID}/${MODEL_NAME}`, 
-            instructions: customInstruction,
-            input: query,
-            temperature: 0.1,
-            tools: toolsConfig // 💡 Передаем хранилище только для рекомендаций
-        });
+        // Передаем собранный без лишних undefined-ключей объект параметров
+        const response = await client.responses.create(apiParams);
         rawText = response.output_text || "";
     } catch (e) {
         return _jsonResponse(500, { error: `AI Studio error: ${e.message}` });
