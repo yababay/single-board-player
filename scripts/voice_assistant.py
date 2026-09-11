@@ -23,6 +23,7 @@ VECTOR_STORE_ID = os.getenv("YC_VECTOR_STORE_ID")
 MODEL_NAME = os.getenv("YC_MODEL_NAME")
 STT_ENDPOINT = os.getenv("YC_STT_ENDPOINT")
 ASSISTANT_ENDPOINT = os.getenv("YC_ASSISTANT_ENDPOINT")
+RECORD_DURATION = int(os.getenv("RECORD_DURATION", "5"))  # Длительность записи в секундах
 
 AUDIO_FILE = "/tmp/voice_request.ogg"
 
@@ -39,12 +40,12 @@ SYSTEM_INSTRUCTIONS = """Ты — строгий музыкальный асси
 4. Каждый запрос изолирован. Полностью забудь все свои предыдущие ответы в этом диалоге и не пытайся их повторять.
 
 ### ФОРМАТ ОТВЕТА: 
-В ответ выдай СТРОГО два числа, разделенные точкой с запятой из поля "Команда: [код]". Запрещено писать любые вводные слова, пояснения, комментарии, знаки препинания или кавычки. Только две цифры и точка с запятой между ними (например: 1052;8)."""
+В ответ выдай СТРОГО два числа, разделенные точкой с запятой из поля "Команда: [число;число]". Запрещено писать любые вводные слова, пояснения, комментарии, знаки препинания или кавычки."""
 
 def record_audio():
     """Запись звука стабильным stereo-методом и сжатие в OGG через oggenc"""
-    print("=== Слушаю вашу команду (запись 5 секунд) ===", file=sys.stderr)
-    cmd = f"arecord -f cd -t raw -d 5 | oggenc - -r -o {AUDIO_FILE}"
+    print(f"=== Слушаю вашу команду (запись {RECORD_DURATION} секунд) ===", file=sys.stderr)
+    cmd = f"arecord -f cd -t raw -d {RECORD_DURATION} | oggenc - -r -o {AUDIO_FILE}"
     subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
     if not os.path.exists(AUDIO_FILE) or os.path.getsize(AUDIO_FILE) == 0:
@@ -156,6 +157,8 @@ def control_mpc(playlist_num, track_num):
         # Выполняем цепочку mpc-команд
         subprocess.run("mpc clear", shell=True, stdout=subprocess.DEVNULL)
         subprocess.run(f'mpc load "{target_playlist}"', shell=True, stdout=subprocess.DEVNULL)
+        if not int(track_num):
+            track_num = 1  # Если трек не указан, ставим первый
         subprocess.run(f"mpc play {track_num}", shell=True, stdout=subprocess.DEVNULL)
         
     except Exception as e:
