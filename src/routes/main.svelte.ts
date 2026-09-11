@@ -19,6 +19,12 @@ export const state = $state({
 	isPending: false,
 	activeTab: 'tagger',
 
+	// Состояния для вкладки рекомендаций
+	recommendQuery: 'Найди ноктюрн Шопена',
+	recommendOutput: '',
+	recommendInstructionName: '999-recommend-me-a-track.md',
+
+
 	// Инициализируем массив тегов
 	expertTags: tags.map(t => ({
 		id: t.id,
@@ -43,6 +49,63 @@ const PLAYLISTS_URL = '/api/playlists';
 const TOKEN_LIFETIME_MS = 4 * 60 * 60 * 1000;
 
 export const actions = {
+	async processRecommendation() {
+		if (!state.recommendQuery.trim()) {
+			alert('Пожалуйста, введите поисковый запрос.');
+			return;
+		}
+
+		state.isPending = true;
+		state.statusMessage = 'Поиск рекомендаций в векторном хранилище...';
+		state.statusColor = '#007bff';
+		state.recommendOutput = '';
+
+		try {
+			// Шаг 1: Гарантированно считываем текст инструкции 999 из бакета
+			const instRes = await fetch(`${PLAYLISTS_URL}?type=instruction&name=${encodeURIComponent(state.recommendInstructionName)}`, {
+				headers: { 'Authorization': `Bearer ${state.iamToken}` }
+			});
+			if (!instRes.ok) throw new Error('Не удалось загрузить системный промпт рекомендаций.');
+			const recommendationPrompt = await instRes.text();
+
+			// Шаг 2: Отправляем запрос ассистенту
+			const response = await fetch(ASSISTANT_URL, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.iamToken}` },
+				body: JSON.stringify({
+					query: state.recommendQuery.trim(),
+					instruction: recommendationPrompt,
+					playlistName: 'recommendation_request.yaml', // Фиктивное имя
+					tagsConfig: [] // Для поиска теги не нужны
+				})
+			});
+
+			if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
+
+			const rawResult = await response.text();
+			
+			// Шаг 3: Парсим ответ вида "12;5"
+			if (rawResult.includes(';')) {
+				const parts = rawResult.split(';');
+				const playlistNum = parts[0].trim();
+				const trackNum = parts[1].trim();
+				state.recommendOutput = `Рекомендация агента: плейлист № ${playlistNum}, трек № ${trackNum}.`;
+				state.statusMessage = 'Рекомендация успешно получена.';
+				state.statusColor = 'green';
+			} else {
+				// Если модель ответила развернутым текстом или ошибкой
+				state.recommendOutput = rawResult;
+				state.statusMessage = 'Ответ получен в свободном формате.';
+				state.statusColor = '#333';
+			}
+
+		} catch (error: any) {
+			state.statusMessage = `Ошибка поиска: ${error.message}`;
+			state.statusColor = 'red';
+		} finally {
+			state.isPending = false;
+		}
+	},
 	checkSession() {
 		const savedToken = localStorage.getItem('yc_iam_token');
 		const savedTime = localStorage.getItem('yc_token_saved_at');

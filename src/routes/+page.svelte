@@ -22,92 +22,141 @@
 			</div>
 		</div>
 	{:else}
-		<button class="logout-link" onclick={() => actions.clearToken()}>
-			<i class="bi bi-box-arrow-right"></i> Выйти
-		</button>
+		<section id="playlist">
+			<button class="logout-link" onclick={() => actions.clearToken()}>
+				<i class="bi bi-box-arrow-right"></i> Выйти
+			</button>
 
-		<!-- Навигация по вкладкам -->
-		<div class="tabs">
-			<button class="tab-btn" class:active={state.activeTab === 'tagger'} onclick={() => state.activeTab = 'tagger'}>🎙 Разметка треков</button>
-			<button class="tab-btn" class:active={state.activeTab === 'tags_config'} onclick={() => state.activeTab = 'tags_config'}>🏷 Глобальные теги</button>
-			<button class="tab-btn" class:active={state.activeTab === 'instructions'} onclick={() => state.activeTab = 'instructions'}>⚙️ Инструкции ИИ ({state.instructions.length})</button>
-		</div>
-
-		<!-- ВКЛАДКА 1: РАЗМЕТКА -->
-		{#if state.activeTab === 'tagger'}
-			<PlaylistSelect />
-
-			<div class="form-group">
-				<label for="query-input">Задание для ИИ-агента:</label>
-				<input id="query-input" type="text" bind:value={state.query} />
+			<!-- Четырехвкладочная навигационная панель -->
+			<div class="tabs">
+				<button class="tab-btn" class:active={state.activeTab === 'tagger'} onclick={() => state.activeTab = 'tagger'}>🎙 Разметка треков</button>
+				<button class="tab-btn" class:active={state.activeTab === 'tags_config'} onclick={() => state.activeTab = 'tags_config'}>🏷 Глобальные теги</button>
+				<button class="tab-btn" class:active={state.activeTab === 'instructions'} onclick={() => state.activeTab = 'instructions'}>⚙️ Инструкции ИИ ({state.instructions.length})</button>
+				<button class="tab-btn" class:active={state.activeTab === 'testing'} onclick={() => state.activeTab = 'testing'}>🔍 Тестирование</button>
 			</div>
 
-			<div class="form-group">
-				<label for="yaml-input">Фрагмент YAML-данных:</label>
-				<textarea id="yaml-input" class="code-input" rows="12" bind:value={state.yamlData}></textarea>
-			</div>
-			<!-- Кнопка генерации отсюда удалена -->
-		
-		<!-- ВКЛАДКА 2: ГЛОБАЛЬНЫЕ ТЕГИ -->
-		{:else if state.activeTab === 'tags_config'}
-			<div class="expert-panel">
-				<h3>✍️ Архивные метаданные медиатеки</h3>
-				<form autocomplete="on" onsubmit={() => false}>
-					<div class="grid">
-						{#each state.expertTags as tag, i}
-							{#if tag.id !== 'genre'}
-								<div class="form-group">
-									<label for="tag-{tag.id}">{tag.label} ({tag.type === 'txxx' ? 'TXXX:' : ''}{tag.flag}):</label>
-									<input 
-										id="tag-{tag.id}" 
-										name="archive-tag-{tag.id}"
-										type="text" 
-										bind:value={state.expertTags[i].value} 
-										placeholder={tag.placeholder}
-										oninput={(e) => actions.saveTagValue(tag.id, (e.target as HTMLInputElement).value)}
-									/>
-								</div>
-							{:else}
-								<Genre />
-							{/if}
+			<!-- ВКЛАДКА 1: РАЗМЕТКА -->
+			{#if state.activeTab === 'tagger'}
+				<PlaylistSelect />
+
+				<div class="form-group">
+					<label for="query-input">Задание для ИИ-агента:</label>
+					<input id="query-input" type="text" bind:value={state.query} />
+				</div>
+
+				<div class="form-group">
+					<label for="yaml-input">Фрагмент YAML-данных:</label>
+					<textarea id="yaml-input" class="code-input" rows="12" bind:value={state.yamlData}></textarea>
+				</div>
+				
+				<!-- Перенесли вывод ответа разметки сюда -->
+				{#if state.outputText}
+					<pre id="output">{state.outputText}</pre>
+				{/if}
+			
+			<!-- ВКЛАДКА 2: ГЛОБАЛЬНЫЕ ТЕГИ -->
+			{:else if state.activeTab === 'tags_config'}
+				<div class="expert-panel">
+					<h3>✍️ Архивные метаданные медиатеки</h3>
+					<form autocomplete="on" onsubmit={() => false}>
+						<div class="grid">
+							{#each state.expertTags as tag, i}
+								{#if tag.id !== 'genre'}
+									<div class="form-group">
+										<label for="tag-{tag.id}">{tag.label} ({tag.type === 'txxx' ? 'TXXX:' : ''}{tag.flag}):</label>
+										<input 
+											id="tag-{tag.id}" 
+											name="archive-tag-{tag.id}"
+											type="text" 
+											bind:value={state.expertTags[i].value} 
+											placeholder={tag.placeholder}
+											oninput={(e) => actions.saveTagValue(tag.id, (e.target as HTMLInputElement).value)}
+										/>
+									</div>
+								{:else}
+									<Genre />
+								{/if}
+							{/each}
+						</div>
+					</form>
+				</div>
+
+			<!-- ВКЛАДКА 3: ИНСТРУКЦИИ -->
+			{:else if state.activeTab === 'instructions'}
+				<div class="form-group">
+					<label for="inst-select">📄 Выберите системную инструкцию из бакета:</label>
+					<select id="inst-select" bind:value={state.selectedInstruction} onchange={() => actions.loadInstructionText(state.selectedInstruction)}>
+						{#each state.instructions as inst}
+							<option value={inst}>{inst}</option>
 						{/each}
+					</select>
+				</div>
+
+				<div class="form-group">
+					<label for="inst-text">Содержимое промпта:</label>
+					<textarea id="inst-text" class="code-input" rows="15" bind:value={state.currentInstructionText}></textarea>
+				</div>
+				
+				{#if state.outputText}
+					<pre id="output">{state.outputText}</pre>
+				{/if}
+
+			<!-- 💡 НОВАЯ ВКЛАДКА 4: ТЕСТИРОВАНИЕ РЕКОМЕНДАЦИЙ -->
+			{:else if state.activeTab === 'testing'}
+				<div class="expert-panel" id="recommendations">
+					<h3>🔍 Поиск музыкальных рекомендаций (RAG)</h3>
+					
+					<div class="form-group text-left">
+						<!-- label for="recommend-input">Что послушать?</label -->
+						<div class="search-row">
+							<input 
+								id="recommend-input" 
+								type="text" 
+								placeholder="Найди ноктюрн Шопена" 
+								bind:value={state.recommendQuery}
+								disabled={state.isPending}
+								onkeydown={(e) => e.key === 'Enter' && actions.processRecommendation()}
+							/>
+							<button 
+								type="button" 
+								class="btn-search" 
+								onclick={() => actions.processRecommendation()} 
+								disabled={state.isPending || !state.recommendQuery.trim()}
+							>
+								<i class="bi bi-search"></i> Найти
+							</button>
+						</div>
 					</div>
-				</form>
-			</div>
 
-		<!-- ВКЛАДКА 3: ИНСТРУКЦИИ -->
-		{:else if state.activeTab === 'instructions'}
-			<div class="form-group">
-				<label for="inst-select">📄 Выберите системную инструкцию из бакета:</label>
-				<select id="inst-select" bind:value={state.selectedInstruction} onchange={() => actions.loadInstructionText(state.selectedInstruction)}>
-					{#each state.instructions as inst}
-						<option value={inst}>{inst}</option>
-					{/each}
-				</select>
-			</div>
-
-			<div class="form-group">
-				<label for="inst-text">Содержимое промпта:</label>
-				<textarea id="inst-text" class="code-input" rows="15" bind:value={state.currentInstructionText}></textarea>
-			</div>
-		{/if}
+					<!-- Красивое форматированное поле ответа ИИ-рекомендатора -->
+					{#if state.recommendOutput}
+						<div class="recommendation-result">
+							<i class="bi bi-music-note-beaming text-primary"></i> 
+							<span>{state.recommendOutput}</span>
+						</div>
+					{/if}
+					<p class="text-muted" style="margin-top: 10px; font-size: .875rem;">💡 Рекомендации формируются на основе векторного поиска по архивным метаданным и инструкциям ИИ.</p>
+				</div>
+			{/if}
+			<!-- Горизонтальная панель управления (Toolbar): Скрываем её на вкладке тестирования, чтобы не путать кнопки -->
+			{#if state.activeTab !== 'testing'}
+				<div class="toolbar-panel">
+					<button class="btn-toolbar btn-warning" onclick={() => actions.clearExpertTags()}>
+						<i class="bi bi-trash"></i> Очистить теги
+					</button>
+					<button class="btn-toolbar btn-primary" onclick={() => actions.processRequest()} disabled={state.isPending}>
+						<i class="bi bi-terminal"></i> Сгенерировать скрипт
+					</button>
+				</div>
+			{/if}
+		</section>
 	{/if}
 
-	<!-- 💡 НОВАЯ ЕДИНАЯ ПАНЕЛЬ УПРАВЛЕНИЯ КНОПКАМИ -->
-	<div class="toolbar-panel">
-		<!-- Кнопка очистки: теперь видна всегда, слева, цвет warning -->
-		<button class="btn-toolbar btn-warning" onclick={() => actions.clearExpertTags()}>
-			<i class="bi bi-trash"></i> Очистить теги
-		</button>
-		
-		<!-- Кнопка генерации: теперь видна всегда, справа, с иконкой терминала, без .sh -->
-		<button class="btn-toolbar btn-primary" onclick={() => actions.processRequest()} disabled={state.isPending}>
-			<i class="bi bi-terminal"></i> Сгенерировать скрипт
-		</button>
-	</div>
 
-	{#if state.statusMessage}<div id="status" style="color: {state.statusColor}">{state.statusMessage}</div>{/if}
-	{#if state.outputText}<pre id="output">{state.outputText}</pre>{/if}
+	<!-- 💡 В самом низу остаются ТОЛЬКО отладочные, короткие системные сообщения -->
+	{#if state.statusMessage}
+		<div id="status" style="color: {state.statusColor}">{state.statusMessage}</div>
+	{/if}
 </div>
 
 <style>
@@ -137,22 +186,7 @@
 	button:disabled { background-color: #cccccc; cursor: not-allowed; }
 	#status { margin-top: 15px; font-weight: bold; text-align: left; }
 	#output { margin-top: 20px; padding: 15px; background: #e9ecef; border-left: 4px solid #007bff; white-space: pre-wrap; text-align: left; font-family: 'Courier New', monospace; }
-	/*.action-row {
-		margin-top: 25px;
-		display: flex;
-		justify-content: flex-end;
-		border-top: 1px solid #eee;
-		padding-top: 15px;
-	}
-	.btn-clear {
-		background-color: #dc3545;
-		width: auto;
-		padding: 10px 20px;
-		font-size: 14px;
-	}
-	.btn-clear:hover {
-		background-color: #bd2130;
-	}*/
+
 	/* Стили горизонтальной панели управления */
 	.toolbar-panel {
 		display: flex;
@@ -194,5 +228,57 @@
 	.btn-warning:hover {
 		background-color: #e0a800;
 	}
+	/* Стили для вкладки тестирования рекомендаций */
+	.search-row {
+		display: flex;
+		gap: 8px;
+		margin-bottom: 5rem;
+	}
+	.btn-search {
+		width: auto;
+		padding: 0 25px;
+		background-color: #28a745; /* Зеленая кнопка поиска */
+		color: white;
+		border: none;
+		border-radius: 4px;
+		font-weight: bold;
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.btn-search:hover:not(:disabled) {
+		background-color: #218838;
+	}
+	.btn-search:disabled {
+		background-color: #cccccc;
+		cursor: not-allowed;
+	}
+	
+	/* Плашка вывода рекомендации */
+	.recommendation-result {
+		margin-top: 20px;
+		padding: 15px 20px;
+		background-color: #e8f4fd;
+		border-left: 5px solid #007bff;
+		border-radius: 4px;
+		font-size: 15px;
+		font-weight: bold;
+		color: #004085;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		text-align: left;
+	}
+	.recommendation-result i {
+		font-size: 20px;
+	}
+
+	#recommendations {
+		min-height: 50vh; /* Минимальная высота для вкладки тестирования */
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+	}
+
 
 </style>

@@ -48,7 +48,7 @@ if [ "$FUNCTION_NAME" == "assistant" ] || [ -z "$FUNCTION_NAME" ]; then
         --folder-id "$YC_FOLDER_ID" \
         --service-account-id "$YC_ACCOUNT_ID" \
         --source-path "$TMP_DIR/assistant.zip" \
-        --environment "BASE_URL=$YC_BASE_URL,YANDEX_API_KEY=$YC_API_KEY,MODEL_NAME=$YC_MODEL_NAME,FOLDER_ID=$YC_FOLDER_ID"
+        --environment "BASE_URL=$YC_ASSISTANT_ENDPOINT,YANDEX_API_KEY=$YC_API_KEY,MODEL_NAME=$YC_MODEL_NAME,FOLDER_ID=$YC_FOLDER_ID,VECTOR_STORE_ID=$YC_VECTOR_STORE_ID"
 
     echo "✅ Функция ASSISTANT успешно обновлена!"
 fi

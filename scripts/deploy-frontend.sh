@@ -6,6 +6,8 @@ set -e
 # ─── НАСТРОЙКИ ПРОЕКТА ───────────────────────────────────────────
 BUCKET_NAME="playlists-dispatcher"
 BUILD_DIR="build"
+INSTRUCTIONS_DIR="src/lib/assets/instructions"
+
 # Официальный S3-эндпоинт Яндекс Облака
 YC_S3_ENDPOINT="https://storage.yandexcloud.net"
 
@@ -26,6 +28,8 @@ fi
 
 npm run build
 
+cp -r "$INSTRUCTIONS_DIR" "$BUILD_DIR"
+
 if [ ! -d "$BUILD_DIR" ]; then
     echo "❌ Ошибка: Директория '$BUILD_DIR' не найдена после сборки."
     exit 1
@@ -41,6 +45,10 @@ aws s3 cp "$BUILD_DIR/_app" "s3://$BUCKET_NAME/_app" \
     --recursive \
     --cache-control "public, max-age=31536000, immutable"
 aws s3 cp "$BUILD_DIR/fonts" "s3://$BUCKET_NAME/fonts" \
+    --endpoint-url="$YC_S3_ENDPOINT" \
+    --recursive \
+    --cache-control "public, max-age=31536000, immutable"
+aws s3 cp "$BUILD_DIR/instructions" "s3://$BUCKET_NAME/instructions" \
     --endpoint-url="$YC_S3_ENDPOINT" \
     --recursive \
     --cache-control "public, max-age=31536000, immutable"
