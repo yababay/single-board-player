@@ -3,6 +3,7 @@
 	import { state, actions } from './main.svelte';
 	import Genre from '$lib/components/Genre.svelte';
 	import PlaylistSelect from '$lib/components/PlaylistSelect.svelte'; // 💡 Импортируем новый компонент
+	import { PUBLIC_PAGE_TITLE } from '$env/static/public';
 	
 	onMount(() => {
 		actions.checkSession();
@@ -10,7 +11,7 @@
 </script>
 
 <div class="container">
-	<h2>Генератор тегов медиатеки v2.2</h2>
+	<h3>{PUBLIC_PAGE_TITLE}</h3>
 
 	{#if !state.isAuthorized}
 		<div class="auth-box">
@@ -25,6 +26,7 @@
 			<i class="bi bi-box-arrow-right"></i> Выйти
 		</button>
 
+		<!-- Навигация по вкладкам -->
 		<div class="tabs">
 			<button class="tab-btn" class:active={state.activeTab === 'tagger'} onclick={() => state.activeTab = 'tagger'}>🎙 Разметка треков</button>
 			<button class="tab-btn" class:active={state.activeTab === 'tags_config'} onclick={() => state.activeTab = 'tags_config'}>🏷 Глобальные теги</button>
@@ -33,8 +35,6 @@
 
 		<!-- ВКЛАДКА 1: РАЗМЕТКА -->
 		{#if state.activeTab === 'tagger'}
-			
-			<!-- 💡 ВМЕСТО СТАРОГО БЛОКА ВЫБОРА ПЛЕЙЛИСТА ВСТАВЛЯЕМ КОМПОНЕНТ -->
 			<PlaylistSelect />
 
 			<div class="form-group">
@@ -46,23 +46,18 @@
 				<label for="yaml-input">Фрагмент YAML-данных:</label>
 				<textarea id="yaml-input" class="code-input" rows="12" bind:value={state.yamlData}></textarea>
 			</div>
-
-			<button onclick={() => actions.processRequest()} disabled={state.isPending}> Сгенерировать .sh скрипт </button>
+			<!-- Кнопка генерации отсюда удалена -->
 		
-	<!-- ВКЛАДКА 2: ДИНАМИЧЕСКАЯ ПАНЕЛЬ ТЕГОВ С ПОДДЕРЖКОЙ ИСТОРИИ БРАУЗЕРА -->
+		<!-- ВКЛАДКА 2: ГЛОБАЛЬНЫЕ ТЕГИ -->
 		{:else if state.activeTab === 'tags_config'}
 			<div class="expert-panel">
 				<h3>✍️ Архивные метаданные медиатеки</h3>
-				
-				<!-- 💡 ДОБАВЛЕНО: Нативная форма с явным включением автодополнения. 
-				     onsubmit="return false" предотвращает реальную перезагрузку страницы -->
 				<form autocomplete="on" onsubmit={() => false}>
 					<div class="grid">
 						{#each state.expertTags as tag, i}
 							{#if tag.id !== 'genre'}
 								<div class="form-group">
 									<label for="tag-{tag.id}">{tag.label} ({tag.type === 'txxx' ? 'TXXX:' : ''}{tag.flag}):</label>
-									<!-- 💡 ДОБАВЛЕНО: Атрибут name, привязанный к id тега. Именно по нему браузер будет копить историю ввода -->
 									<input 
 										id="tag-{tag.id}" 
 										name="archive-tag-{tag.id}"
@@ -78,13 +73,6 @@
 						{/each}
 					</div>
 				</form>
-				
-				<div class="action-row">
-					<button class="btn-clear" onclick={() => actions.clearExpertTags()}>
-						<i class="bi bi-trash"></i> Очистить все теги
-					</button>
-				</div>
-				
 			</div>
 
 		<!-- ВКЛАДКА 3: ИНСТРУКЦИИ -->
@@ -105,13 +93,33 @@
 		{/if}
 	{/if}
 
+	<!-- 💡 НОВАЯ ЕДИНАЯ ПАНЕЛЬ УПРАВЛЕНИЯ КНОПКАМИ -->
+	<div class="toolbar-panel">
+		<!-- Кнопка очистки: теперь видна всегда, слева, цвет warning -->
+		<button class="btn-toolbar btn-warning" onclick={() => actions.clearExpertTags()}>
+			<i class="bi bi-trash"></i> Очистить теги
+		</button>
+		
+		<!-- Кнопка генерации: теперь видна всегда, справа, с иконкой терминала, без .sh -->
+		<button class="btn-toolbar btn-primary" onclick={() => actions.processRequest()} disabled={state.isPending}>
+			<i class="bi bi-terminal"></i> Сгенерировать скрипт
+		</button>
+	</div>
+
 	{#if state.statusMessage}<div id="status" style="color: {state.statusColor}">{state.statusMessage}</div>{/if}
 	{#if state.outputText}<pre id="output">{state.outputText}</pre>{/if}
 </div>
 
 <style>
+	h3 { margin-bottom: 1.7rem; color: #333; font-size: 1.25rem; }
 	.container { position: relative; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 100%; max-width: 800px; }
-	.logout-link { position: absolute; top: 25px; right: 25px; background: none; border: none; color: #dc3545; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; width: auto; font-size: 14px; }
+	.logout-link { 
+		/* position: absolute; top: 25px; */
+		position: fixed; top: 25px; right: 25px; 
+		background: none; border: none; 
+		color: #dc3545; cursor: pointer; display: inline-flex; 
+		align-items: center; gap: 5px; width: auto; font-size: 14px; 
+	}
 	.tabs { display: flex; gap: 5px; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
 	.tab-btn { background: #f1f1f1; border: 1px solid #ddd; border-bottom: none; padding: 10px 20px; cursor: pointer; border-radius: 4px 4px 0 0; font-weight: bold; color: #555; width: auto; font-size: 14px; }
 	.tab-btn.active { background: #007bff; color: white; border-color: #007bff; }
@@ -129,7 +137,7 @@
 	button:disabled { background-color: #cccccc; cursor: not-allowed; }
 	#status { margin-top: 15px; font-weight: bold; text-align: left; }
 	#output { margin-top: 20px; padding: 15px; background: #e9ecef; border-left: 4px solid #007bff; white-space: pre-wrap; text-align: left; font-family: 'Courier New', monospace; }
-	.action-row {
+	/*.action-row {
 		margin-top: 25px;
 		display: flex;
 		justify-content: flex-end;
@@ -144,5 +152,47 @@
 	}
 	.btn-clear:hover {
 		background-color: #bd2130;
+	}*/
+	/* Стили горизонтальной панели управления */
+	.toolbar-panel {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		background-color: #f8f9fa;
+		border: 1px solid #e9ecef;
+		padding: 12px 15px;
+		border-radius: 6px;
+		margin-bottom: 20px;
 	}
+
+	/* Базовый класс для кнопок на панели */
+	.btn-toolbar {
+		width: auto; /* Отменяем 100%-ширину, делаем естественный размер */
+		padding: 10px 18px;
+		font-size: 14px;
+		font-weight: bold;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px; /* Зазор между иконкой и текстом */
+		transition: background-color 0.2s ease;
+	}
+
+	/* Кнопка генерации (Синяя) */
+	.btn-primary {
+		background-color: #007bff;
+		color: white;
+	}
+	.btn-primary:hover:not(:disabled) {
+		background-color: #0056b3;
+	}
+
+	/* Кнопка очистки (Оранжевая/Варнинг) */
+	.btn-warning {
+		background-color: #ffc107;
+		color: #212529; /* Темный текст для хорошей читаемости на желтом */
+	}
+	.btn-warning:hover {
+		background-color: #e0a800;
+	}
+
 </style>

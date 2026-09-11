@@ -1,12 +1,13 @@
 <script lang="ts">
 	import favicon from '$lib/assets/ai-music.svg';
+	import { PUBLIC_PAGE_TITLE } from '$env/static/public';
 
 	let { children } = $props();
 </script>
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>Обработка плейлистов</title>
+	<title>{PUBLIC_PAGE_TITLE}</title>
 </svelte:head>
 
 <main>
