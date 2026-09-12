@@ -26,6 +26,7 @@ clean_metadata_text() {
 }
 
 playlist_counter=0
+log_file=m3u2yaml.log
 
 # Сортированный вывод плейлистов через ls -1
 ls -1 $TARGET_PATTERN 2>/dev/null | while IFS= read -r playlist_path; do
@@ -37,6 +38,7 @@ ls -1 $TARGET_PATTERN 2>/dev/null | while IFS= read -r playlist_path; do
     echo "  - playlist_title: \"$(clean_string "$playlist_name")\""
     echo "    playlist_number: $playlist_number"
     echo "    tracks:"
+    echo "📑 $playlist_number" >> $log_file
     
     track_counter=0
     
@@ -53,6 +55,11 @@ ls -1 $TARGET_PATTERN 2>/dev/null | while IFS= read -r playlist_path; do
             # Очищаем строку пути от пробелов по краям
             track_line="${track_line#${track_line%%[![:space:]]*}}"
             track_line="${track_line%${track_line##*[![:space:]]}}"
+            track_line="$(clean_string "$track_line")"
+	    if [ ! -f "$track_line" ]; then
+		    echo "❌ $track_line" >> $log_file
+		    continue
+	    fi
             
             echo "      - track_number: $track_counter"
             echo "        file_path: \"$(clean_string "$track_line")\""
