@@ -25,14 +25,21 @@ db_conn = None
 
 @app.on_event("startup")
 def startup_event():
-    """Этот блок выполняется ОДИН РАЗ при старте сервера. 
-    Тяжелая модель загружается в память и остается там."""
     global model, db_conn
     print("Инициализация локального микросервиса...", file=sys.stderr)
-    print("Загрузка ИИ-модели в оперативную память (это займет около 10-15 секунд)...", file=sys.stderr)
+    print("Загрузка ИИ-модели из ЛОКАЛЬНОЙ папки (офлайн-режим)...", file=sys.stderr)
     
-    # Загружаем модель из вашего локального кэша
-    model = SentenceTransformer('intfloat/multilingual-e5-large')
+    # 🌟 МАГИЯ ОФЛАЙНА: Запрещаем библиотекам обращаться к интернету (Hugging Face)
+    os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+    os.environ["TRANSFORMERS_OFFLINE"] = "1"
+    os.environ["HF_HUB_OFFLINE"] = "1"
+    
+    # Вычисляем точный путь к сохраненной модели внутри нашего проекта
+    current_dir = Path(__file__).resolve().parent
+    local_model_path = str(current_dir / "models" / "multilingual-e5-large")
+    
+    # Загружаем модель строго по локальному пути
+    model = SentenceTransformer(local_model_path)
     
     print("Подключение к локальной PostgreSQL 17...", file=sys.stderr)
     try:
