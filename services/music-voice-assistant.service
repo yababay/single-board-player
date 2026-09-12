@@ -1,0 +1,16 @@
+[Unit]
+Description=Однократный запуск ИИ-распознавания голоса
+# Сервис не запустится, если наш главный ИИ-сервер поиска выключен
+After=music-ai-search.service
+Requires=music-ai-search.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/media/portable/.3f-lab/_projects/single-board-player
+Environment="PATH=/media/portable/.3f-lab/_projects/single-board-player/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+
+# Короткий запуск нашего основного скрипта автоматизации
+ExecStart=python3 scripts/voice-assistant.py
+
+[Install]
+WantedBy=default.target

@@ -31,3 +31,7 @@ model_backup:
 	# Создание резервной копии модели
 	# Используйте эту команду для создания резервной копии модели
 	tar -cvf /media/mabel/c29663e0-540a-456c-874f-2b969d88ea63/backups/multilingual-e5-large.tar -C scripts/models/ multilingual-e5-large
+
+deploy:
+	cp services/*.service ~/.config/systemd/user
+	systemctl --user daemon-reload
