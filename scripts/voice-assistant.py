@@ -121,10 +121,26 @@ def control_mpc(playlist_num, track_num):
         sys.exit(1)
 
 def main():
-    # Шаг 1. Записываем звук и аппаратно конвертируем в моно через ffmpeg
+    # 🌟 АВТОМАТИЧЕСКИЙ ПРОГРЕВ ИИ-СЕРВЕРА СТАРТ
+    print("Проверка готовности ИИ-сервера...", file=sys.stderr)
+    
+    # Отправляем легкий холостой запрос. Выставляем timeout=40 секунд, 
+    # чтобы сервер успел не спеша прочитать все 1.3 ГБ весов с жесткого диска.
+    try:
+        ping_res = requests.get(LOCAL_SEARCH_URL, params={"query": "прогрев"}, timeout=40)
+        ping_res.raise_for_status()
+        print("ИИ-сервер успешно проснулся и готов к работе!", file=sys.stderr)
+    except Exception as e:
+        print(f"Ошибка прогрева сервера: {e}", file=sys.stderr)
+        # Если сервер лежит намертво, выводим ошибку на экран и выходим
+        subprocess.run('notify-send -i dialog-error "Сбой системы" "ИИ-сервер не отвечает на пинг"', shell=True)
+        sys.exit(1)
+    # 🌟 АВТОМАТИЧЕСКИЙ ПРОГРЕВ ИИ-СЕРВЕРА КОНЕЦ
+
+    # Шаг 1. Теперь, когда сервер точно в ОЗУ, спокойно включаем микрофон и визуализацию
     record_audio()
     
-    # Шаг 2. Распознаем речь на локальном процессоре
+    # Шаг 2. Распознаем речь на локальном процессоре (Vosk)
     raw_text = recognize_speech_local()
     print(f"Распознано локально (Vosk): \"{raw_text}\"", file=sys.stderr)
     
@@ -135,11 +151,10 @@ def main():
         sys.exit(1)
         
     # Шаг 4. Отправляем чистый текст на наш ЛОКАЛЬНЫЙ ИИ-сервер FastAPI
+    # Здесь timeout можно вернуть к быстрым 10 секундам, ведь сервер уже прогрет!
     print(f"Запрос к локальному ИИ-серверу для: \"{clean_text}\"...", file=sys.stderr)
     try:
-        # ... в функции main() измените строку запроса:
-        response = requests.get(LOCAL_SEARCH_URL, params={"query": clean_text}, timeout=30)
-        # response = requests.get(LOCAL_SEARCH_URL, params={"query": clean_text}, timeout=10)
+        response = requests.get(LOCAL_SEARCH_URL, params={"query": clean_text}, timeout=10)
         response.raise_for_status()
         srv_data = response.json()
         
@@ -150,28 +165,17 @@ def main():
             ai_command = srv_data.get("command")
             pl_num, tr_num = ai_command.split(';')
             
-            # Сначала физически переключаем плеер mpc
+            # Физически переключаем плеер mpc
             control_mpc(pl_num, tr_num)
             
-            # 🌟 ПЕРЕХВАТ ТЕГОВ ИЗ MPC:
-            # Вызываем mpc без параметров — он возвращает три строки:
-            # 1. Текущий трек (Автор - Название)
-            # 2. Статус ([playing] #3/3 ...)
-            # 3. Настройки (volume: ...)
+            # Перехватываем теги из mpc
             try:
                 mpc_output = subprocess.check_output("mpc", shell=True, text=True).splitlines()
-                if mpc_output:
-                    # Берем самую первую строчку — это и есть играющий сейчас трек
-                    current_track = mpc_output[0].strip()
-                else:
-                    current_track = "Воспроизведение запущено"
+                current_track = mpc_output[0].strip() if mpc_output else "Воспроизведение запущено"
             except Exception:
                 current_track = "Воспроизведение запущено"
             
-            # 🌟 ИТОГОВАЯ ВИЗУАЛИЗАЦИЯ:
-            # Выводим на экран красивое окно:
-            # Заголовок: Что услышал Vosk (например: "Вы сказали: второй концерт рахманинова")
-            # Текст: Что сейчас заиграло в колонках (из тегов mpc)
+            # Итоговая визуализация на экране
             notify_final = (
                 f'notify-send -t 6000 -i media-playlist-music '
                 f'"Вы сказали: «{raw_text}»" '
