@@ -17,15 +17,16 @@ run_model:
 sql:
 	psql -U mabel -d player
 
-db_restore:
+restore:
 	# Восстановление базы данных из дампа
 	# Используйте эту команду, если у вас есть дамп базы данных player.dump
 	psql -h localhost -U postgres -d player -f ~/Music/player_semantic_db.sql
 
-db_backup:
+backup:
 	# Создание дампа базы данных player
 	# Используйте эту команду для создания резервной копии базы данных
-	./scripts/db-backup.sh	
+	# ./scripts/db-backup.sh	
+	pg_dump -h localhost -U mabel -F p --clean -b -f "/home/mabel/Music/player_semantic_db.sql" player
 
 model_backup:
 	# Создание резервной копии модели

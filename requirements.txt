@@ -9,6 +9,8 @@ cloudpickle==3.1.2
 cuda-bindings==13.3.1
 cuda-pathfinder==1.8.1
 cuda-toolkit==13.0.3.0
+DAWG-Python==0.7.2
+docopt==0.6.2
 fastapi==0.141.1
 filelock==3.32.6
 fsspec==2026.7.0
@@ -48,6 +50,8 @@ pycparser==3.0
 pydantic==2.13.5
 pydantic_core==2.46.5
 Pygments==2.21.0
+pymorphy2==0.9.1
+pymorphy2-dicts-ru==2.4.417127.4579844
 python-dotenv==1.2.3
 PyYAML==6.0.3
 regex==2026.9.3
@@ -75,3 +79,4 @@ urllib3==2.7.0
 uvicorn==0.52.4
 vosk==0.3.45
 websockets==17.1
+yargy==0.16.0
