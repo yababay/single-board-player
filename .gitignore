@@ -4,3 +4,4 @@ node_modules/
 .env
 .venv/
 scripts/models/
+scripts/__pycache_/
