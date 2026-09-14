@@ -80,7 +80,7 @@ NUM_MAP = {
     'двухтысячный': '2000',
     'трехтысячный': '3000',
     'четырехтысячный': '4000',
-    'пятиftyсячный': '5000',
+    'пятитысячный': '5000',
     'шеститысячный': '6000',
     'семитысячный': '7000',
     'восемитысячный': '8000',
@@ -89,6 +89,8 @@ NUM_MAP = {
 
 MATCHING_WORDS = list(NUM_MAP.keys())
 MATCHING_WORDS.append("плейлист")
+MATCHING_WORDS.append("плэй")
+MATCHING_WORDS.append("лист")
 MATCHING_WORDS.append("тысяча")
 MATCHING_WORDS.append("тысяч")
 MATCHING_WORDS.append("тысячи")
@@ -102,23 +104,30 @@ def check_playlist_phrase(text):
     matches = list(playlist_parser.findall(text.lower()))
 
     if not matches:
-        raise ValueError("No matching words found in the text.")
+        return 0
 
     positive_words = [m.tokens[0].value for m in matches]
+    if not positive_words or  len(positive_words) < 2:
+        return 0
 
-    if positive_words[0] != "плейлист":
-        raise ValueError("The first word in the text is not 'плейлист'.")
+    first_word = positive_words[0]
+    second_word = positive_words[1] if len(positive_words) > 1 else ''
 
-    positive_words  = positive_words[1:] if len(positive_words) > 1 else []
+    if first_word == "плейлист":
+        positive_words  = positive_words[1:] if len(positive_words) > 1 else []
+
+    if first_word == "плэй" and second_word == "лист":
+        positive_words  = positive_words[2:] if len(positive_words) > 2 else []
 
     if not positive_words:
-        raise ValueError("No valid numbers found after 'плейлист'.")
+        return 0
+
+    first_word = positive_words[0]
 
     if len(positive_words) == 1:
         first_number = NUM_MAP.get(positive_words[0], 0)
         return int(first_number)
 
-    first_word = positive_words[0]
     second_word = positive_words[1]
     sum = 0
 
@@ -145,89 +154,129 @@ def check_playlist_phrase(text):
 
 import unittest
 
-request_prefix = "загрузи плейлист"
+request_prefix_1 = "загрузи плейлист"
+request_prefix_2 = "загрузи плэй лист"
 
 class TestCheckPlaylistPhrase(unittest.TestCase):
 
     def test_1(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " один"), 1)
-        self.assertEqual(check_playlist_phrase(request_prefix + " первый"), 1)
-
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " один"), 1)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " первый"), 1)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " один"), 1)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " первый"), 1)
     def test_5(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " пять"), 5)    
-        self.assertEqual(check_playlist_phrase(request_prefix + " пятый"), 5)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " пять"), 5)    
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " пятый"), 5)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " пять"), 5)    
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " пятый"), 5)
 
     def test_10(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " десять"), 10)
-        self.assertEqual(check_playlist_phrase(request_prefix + " десятый"), 10)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " десять"), 10)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " десятый"), 10)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " десять"), 10)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " десятый"), 10)
 
     def test_15(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " пятнадцать"), 15)
-        self.assertEqual(check_playlist_phrase(request_prefix + " пятнадцатый"), 15)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " пятнадцать"), 15)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " пятнадцатый"), 15)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " пятнадцать"), 15)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " пятнадцатый"), 15)
 
     def test_50(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " пятьдесят"), 50)
-        self.assertEqual(check_playlist_phrase(request_prefix + " пятидесятый"), 50)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " пятьдесят"), 50)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " пятидесятый"), 50)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " пятьдесят"), 50)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " пятидесятый"), 50)
 
     def test_500(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " пятьсот"), 500)   
-        self.assertEqual(check_playlist_phrase(request_prefix + " пятисотый"), 500)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " пятьсот"), 500)   
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " пятисотый"), 500)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " пятьсот"), 500)   
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " пятисотый"), 500)
 
     def test_1000(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " тысяча"), 1000)
-        self.assertEqual(check_playlist_phrase(request_prefix + " тысячный"), 1000)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " тысяча"), 1000)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " тысячный"), 1000)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " тысяча"), 1000)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " тысячный"), 1000)
 
     def test_1001(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " тысяча один"), 1001)
-        self.assertEqual(check_playlist_phrase(request_prefix + " тысяча первый"), 1001)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " тысяча один"), 1001)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " тысяча первый"), 1001)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " тысяча один"), 1001)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " тысяча первый"), 1001)
 
     def test_1010(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " тысяча десять"), 1010)
-        self.assertEqual(check_playlist_phrase(request_prefix + " тысяча десятый"), 1010)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " тысяча десять"), 1010)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " тысяча десятый"), 1010)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " тысяча десять"), 1010)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " тысяча десятый"), 1010)
 
     def test_1015(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " тысяча пятнадцать"), 1015)
-        self.assertEqual(check_playlist_phrase(request_prefix + " тысяча пятнадцатый"), 1015)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " тысяча пятнадцать"), 1015)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " тысяча пятнадцатый"), 1015)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " тысяча пятнадцать"), 1015)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " тысяча пятнадцатый"), 1015)
 
     def test_1050(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " тысяча пятьдесят"), 1050)
-        self.assertEqual(check_playlist_phrase(request_prefix + " тысяча пятидесятый"), 1050)   
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " тысяча пятьдесят"), 1050)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " тысяча пятидесятый"), 1050)   
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " тысяча пятьдесят"), 1050)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " тысяча пятидесятый"), 1050)   
 
     def test_1500(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " тысяча пятьсот"), 1500)
-        self.assertEqual(check_playlist_phrase(request_prefix + " тысяча пятисотый"), 1500)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " тысяча пятьсот"), 1500)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " тысяча пятисотый"), 1500)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " тысяча пятьсот"), 1500)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " тысяча пятисотый"), 1500)
 
     def test_2000(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " две тысячи"), 2000)
-        self.assertEqual(check_playlist_phrase(request_prefix + " двухтысячный"), 2000)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи"), 2000)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " двухтысячный"), 2000)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " две тысячи"), 2000)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " двухтысячный"), 2000)
 
     def test_2001(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " две тысячи один"), 2001)
-        self.assertEqual(check_playlist_phrase(request_prefix + " две тысячи первый"), 2001)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи один"), 2001)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи первый"), 2001)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " две тысячи один"), 2001)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " две тысячи первый"), 2001)
 
     def test_2020(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " две тысячи двадцать"), 2020)
-        self.assertEqual(check_playlist_phrase(request_prefix + " две тысячи двадцатый"), 2020)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи двадцать"), 2020)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи двадцатый"), 2020)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " две тысячи двадцать"), 2020)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " две тысячи двадцатый"), 2020)
 
     def test_2025(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " две тысячи двадцать пять"), 2025)
-        self.assertEqual(check_playlist_phrase(request_prefix + " две тысячи двадцать пятый"), 2025)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи двадцать пять"), 2025)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи двадцать пятый"), 2025)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " две тысячи двадцать пять"), 2025)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " две тысячи двадцать пятый"), 2025)
 
     def test_2050(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " две тысячи пятьдесят"), 2050)
-        self.assertEqual(check_playlist_phrase(request_prefix + " две тысячи пятидесятый"), 2050)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи пятьдесят"), 2050)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи пятидесятый"), 2050)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи пятьдесят"), 2050)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи пятидесятый"), 2050)
 
     def test_2500(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " две тысячи пятьсот"), 2500)
-        self.assertEqual(check_playlist_phrase(request_prefix + " две тысячи пятисотый"), 2500)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи пятьсот"), 2500)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи пятисотый"), 2500)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи пятьсот"), 2500)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " две тысячи пятисотый"), 2500)
 
     def six_is_ok(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " шесть"), 6)
-        self.assertEqual(check_playlist_phrase(request_prefix + " шестой"), 6)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " шесть"), 6)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " шестой"), 6)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " шесть"), 6)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " шестой"), 6)
 
     def test_3456(self):
-        self.assertEqual(check_playlist_phrase(request_prefix + " три тысячи четыреста пятьдесят шесть"), 3456)
-        self.assertEqual(check_playlist_phrase(request_prefix + " три тысячи четыреста пятьдесят шестой"), 3456)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " три тысячи четыреста пятьдесят шесть"), 3456)
+        self.assertEqual(check_playlist_phrase(request_prefix_1 + " три тысячи четыреста пятьдесят шестой"), 3456)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " три тысячи четыреста пятьдесят шесть"), 3456)
+        self.assertEqual(check_playlist_phrase(request_prefix_2 + " три тысячи четыреста пятьдесят шестой"), 3456)
 
 if __name__ == "__main__":
     unittest.main()

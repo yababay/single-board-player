@@ -10,6 +10,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from vosk import Model, KaldiRecognizer
 from yargy.pipelines import morph_pipeline
+from playlist_checker import check_playlist_phrase
 
 # 1. Загрузка инфраструктуры и окружения
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,9 +31,6 @@ LOCAL_SEARCH_URL = f"http://{LOCAL_HOST}{PORT_PATH}"
 AUDIO_RAW = "/tmp/voice_request.raw"
 AUDIO_WAV = "/tmp/voice_request.wav"
 
-#from yargy2 import Parser, rule, or_
-#from yargy2.predicates import in_
- 
 def replace_words_with_digits(text):
     positive_word_list = ['плейлист', 'две', 'тысячи', 'двадцать']
     positive_rule = or_(rule(in_(positive_word_list)))
@@ -224,7 +222,7 @@ def main():
     # Отправляем легкий холостой запрос. Выставляем timeout=40 секунд, 
     # чтобы сервер успел не спеша прочитать все 1.3 ГБ весов с жесткого диска.
     try:
-        ping_res = requests.get(LOCAL_SEARCH_URL, params={"query": "прогрев"}, timeout=40)
+        ping_res = requests.get(LOCAL_SEARCH_URL, params={"query": "прогрев"}, timeout=140)
         ping_res.raise_for_status()
         print("ИИ-сервер успешно проснулся и готов к работе!", file=sys.stderr)
     except Exception as e:
@@ -274,31 +272,31 @@ def main():
 
     # 🌟 ЛАКОНИЧНЫЙ АНАЛИЗ ЧИСЕЛ ЧЕРЕЗ РЕГУЛЯРКУ
     # Шаг 1. Переводим слова в цифры: "плейлист две тысячи двадцать" -> "плейлист 2000 20"
-    digitized_text = replace_words_with_digits(text_lower)
-    print(f"Текст после цифровой нормализации: \"{digitized_text}\"", file=sys.stderr)
+    #digitized_text = replace_words_with_digits(text_lower)
+    #print(f"Текст после цифровой нормализации: \"{digitized_text}\"", file=sys.stderr)
     
     # Шаг 2. Ищем любые идущие подряд цифры регулярным выражением \d+
-    numbers_found = re.findall(r'\d+', digitized_text)
+    numbers_found = check_playlist_phrase(text_lower)   #re.findall(r'\d+', digitized_text)
     
     if numbers_found:
         # Если найдено несколько чисел (например, '2000' и '20')
-        if len(numbers_found) == 2 and numbers_found[0].endswith('00'):
+        #if len(numbers_found) == 2 and numbers_found[0].endswith('00'):
             # Специфика тысяч: 2000 + 20 = 2020
-            detected_number = int(numbers_found[0]) + int(numbers_found[1])
-        else:
+        #    detected_number = int(numbers_found[0]) + int(numbers_found[1])
+        #else:
             # Для обычных чисел (например, '35') или если число одно
-            detected_number = int("".join(numbers_found))
+        #    detected_number = int("".join(numbers_found))
             
-        print(f"Выделено число: {detected_number}", file=sys.stderr)
+        print(f"Выделено число: {numbers_found}", file=sys.stderr)
+        control_mpc(numbers_found, 1)
+        return
         
         # Шаг 3. Защита от сонат: проверяем жесткие маркеры плейлиста
-        playlist_markers = ['плейлист', 'диск', 'альбом', 'номер', 'папка', 'загрузи', 'добавь']
-        if any(marker in digitized_text for marker in playlist_markers):
-            print(f"🎯 Прямой вызов! Включаю плейлист №{detected_number}", file=sys.stderr)
-            control_mpc(detected_number, 1)
-            return
-        else:
-            print(f"Маркеры плейлиста не найдены (вероятно, это соната №{detected_number}). Ухожу в ИИ...", file=sys.stderr)
+        #playlist_markers = ['плейлист', 'диск', 'альбом', 'номер', 'папка', 'загрузи', 'добавь']
+        #if any(marker in digitized_text for marker in playlist_markers):
+        #    print(f"🎯 Прямой вызов! Включаю плейлист №{detected_number}", file=sys.stderr)
+        #else:
+        #    print(f"Маркеры плейлиста не найдены (вероятно, это соната №{detected_number}). Ухожу в ИИ...", file=sys.stderr)
 
     # Если прямых команд на плейлист нет — шлем исходный текст на ИИ-сервер
     clean_text = clean_text_query(raw_text)
@@ -357,8 +355,4 @@ def main():
             os.remove(f)
 
 if __name__ == "__main__":
-
-    from playlist_checker import check_playlist_phrase
-
-    result = check_playlist_phrase("загрузи плейлист две тысячи двадцать")
-    print(f"Результат поиска плейлиста: {result}")
+    main()

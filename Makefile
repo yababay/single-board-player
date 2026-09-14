@@ -1,7 +1,6 @@
 git_local: 
-	read -p 'Суть коммита: ' COMMIT
 	git add .
-	git commit -am "$COMMIT"
+	git commit -am "$(shell read -p 'Суть коммита: ' COMMIT && echo $COMMIT)"
 
 git_remote: 
 	git push origin vector
