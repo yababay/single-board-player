@@ -61,7 +61,7 @@ safetensors==0.8.0
 scikit-learn==1.9.0
 scipy==1.18.1
 sentence-transformers==6.0.1
-setuptools==84.0.0
+setuptools<=80.10.2
 shellingham==1.5.4
 srt==3.5.3
 starlette==1.6.0
