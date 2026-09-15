@@ -4,14 +4,15 @@ After=network.target
 
 [Service]
 Type=simple
-# Задаем рабочую директорию — теперь все относительные пути считаются от неё!
 WorkingDirectory=/media/portable/.3f-lab/_projects/single-board-player
-
-# 🌟 ЭЛЕГАНТНОЕ РЕШЕНИЕ: Подменяем PATH для этого юнита.
-# systemd сам найдет нужный интерпретатор в .venv/bin, как если бы мы сделали source!
 Environment="PATH=/media/portable/.3f-lab/_projects/single-board-player/.venv/bin:/usr/local/bin:/usr/bin:/bin"
 
-# Теперь пишем короткие, красивые пути относительно WorkingDirectory
+# 🌟 МАГИЯ АВТОМАТИЗАЦИИ:
+# Перед запуском сервера systemd вызовет наш скрипт-загрузчик. 
+# Сервер FastAPI не запустится, пока модели не будут гарантированно скачаны и проверены!
+ExecStartPre=python3 scripts/bootstrap-models.py
+
+# Основной запуск сервера
 ExecStart=python3 scripts/local-search-server.py
 
 Restart=on-failure
@@ -19,3 +20,4 @@ RestartSec=5s
 
 [Install]
 WantedBy=default.target
+
