@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+import os
+import sys
+from unidecode import unidecode
+import re
+
+def transliterate_name(name):
+    """Транслитерирует имя файла/папки"""
+    # Сначала транслитерация
+    result = unidecode(name)
+    # Заменяем пробелы на подчеркивания
+    result = result.replace(' ', '_')
+    # Убираем недопустимые символы
+    result = re.sub(r'[<>:"/\\|?*]', '', result)
+    # Убираем повторяющиеся подчеркивания
+    result = re.sub(r'_+', '_', result)
+    # Убираем одинарные кавычки
+    result = re.sub(r"'", '', result)
+    # Убираем подчеркивания в начале и конце
+    result = result.strip('_')
+    return result
+
+def process_directory(path, dry_run=False):
+    """Рекурсивно обрабатывает директорию"""
+    # Собираем все пути, сортируем по глубине (чтобы сначала переименовывать файлы, потом папки)
+    all_paths = []
+    for root, dirs, files in os.walk(path):
+        for name in files:
+            all_paths.append((os.path.join(root, name), 'file'))
+        for name in dirs:
+            all_paths.append((os.path.join(root, name), 'dir'))
+    
+    # Сортируем: сначала файлы, потом папки (от глубоких к корневым)
+    all_paths.sort(key=lambda x: (-x[0].count(os.sep), x[1] == 'dir'))
+    
+    renamed_count = 0
+    for full_path, ptype in all_paths:
+        dirname = os.path.dirname(full_path)
+        basename = os.path.basename(full_path)
+        new_basename = transliterate_name(basename)
+        
+        if new_basename != basename:
+            new_path = os.path.join(dirname, new_basename)
+            
+            # Проверяем коллизии
+            if os.path.exists(new_path):
+                print(f"  КОНФЛИКТ: {new_path} уже существует, пропускаю")
+                continue
+            
+            if dry_run:
+                print(f"[DRY-RUN] {basename} -> {new_basename}")
+            else:
+                try:
+                    os.rename(full_path, new_path)
+                    print(f"  {basename} -> {new_basename}")
+                    renamed_count += 1
+                except OSError as e:
+                    print(f"  ОШИБКА: {e}")
+    
+    return renamed_count
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print("Использование: python3 transliterate.py <путь> [--apply]")
+        print("  Без --apply будет только показ изменений (dry-run)")
+        sys.exit(1)
+    
+    path = sys.argv[1]
+    dry_run = '--apply' not in sys.argv
+    
+    if dry_run:
+        print("=== РЕЖИМ ПРОСМОТРА (dry-run) ===")
+        print("Для применения изменений добавьте --apply\n")
+    
+    count = process_directory(path, dry_run)
+    print(f"\n{'Будет переименовано' if dry_run else 'Переименовано'}: {count}")
+

@@ -10,7 +10,8 @@ from dotenv import load_dotenv
 def main():
     # Загружаем настройки из .env в корне проекта
     BASE_DIR = Path(__file__).resolve().parent.parent
-    load_dotenv(dotenv_path=BASE_DIR / '.env')
+    # load_dotenv(dotenv_path=BASE_DIR / '.env')
+    load_dotenv()
     
     # Конфигурация локального сетевого пути (защита от фильтров)
     LOCAL_HOST = "127.0.0.1"

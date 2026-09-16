@@ -1,0 +1,23 @@
+alias lsm3u="ls -1 *.m3u  | egrep '^[0-9]{4}\-'"
+alias lsyml="ls -1 *.yaml | egrep '^[0-9]{4}\-'"
+
+mkyaml () {
+	SOURCE_FN=$1 TARGET_FN="`echo $SOURCE_FN | sed 's/m3u/yaml/'`"; m3u2yaml $SOURCE_FN > $TARGET_FN 
+}
+
+filter2m3u () {
+
+DIR="$1"
+FILTER="$2"
+
+	if [ ! -d "$DIR" ]; then
+		echo No such directory
+		exit 1
+	fi
+
+	if [ -z "$FILTER" ]; then
+		find "$DIR" -name *.mp3 | sort
+	else
+		find "$DIR" -name *.mp3 | grep "$FILTER" | sort
+	fi
+}

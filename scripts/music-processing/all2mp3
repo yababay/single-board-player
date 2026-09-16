@@ -1,0 +1,183 @@
+#!/bin/bash
+# all2mp3 — универсальный конвертер любых аудиоформатов в MP3
+# Использование: ./all2mp3.sh <исходная_папка> [целевая_папка]
+# Если целевая папка не указана, MP3 создаются рядом с оригиналами
+
+set -u  # Ошибка при использовании неинициализированных переменных
+
+# === Настройки ===
+SRC_DIR="${1:-.}"
+DST_DIR="${2:-}"
+
+# Расширения, которые нужно конвертировать (без учёта регистра)
+AUDIO_EXTENSIONS="wav|wma|ape|flac|ogg|opus|m4a|aac|dff|dsf|aiff|aif|mpc|tta|wv"
+
+# Счётчики
+converted=0
+renamed=0
+skipped=0
+errors=0
+
+# === Функции ===
+
+# Конвертация одного файла в MP3
+convert_to_mp3() {
+    local src="$1"
+    local dst="$2"
+    
+    echo "🔄 Конвертирую: $(basename "$src")"
+    
+    # -nostdin КРИТИЧНО ВАЖЕН! Без него ffmpeg будет "съедать" строки из цикла
+    ffmpeg -nostdin -v error -i "$src" \
+        -c:a libmp3lame -q:a 2 \
+        -ac 2 -ar 44100 \
+        -id3v2_version 3 \
+        -map_metadata 0 \
+        -y "$dst"
+    
+    return $?
+}
+
+# Переименование .MP3 → .mp3 (и другие варианты регистра)
+rename_uppercase_mp3_buggy() {
+    local file="$1"
+    local dir
+    dir=$(dirname "$file")
+    local base
+    base=$(basename "$file")
+    local ext="${base##*.}"
+    local name="${base%.*}"
+    
+    # Если расширение не в нижнем регистре — переименовываем
+    if [[ "$ext" != "$ext_lower" ]] 2>/dev/null || [[ "$ext" =~ [A-Z] ]]; then
+        local new_name="$dir/${name}.mp3"
+        if [[ -e "$new_name" ]]; then
+            echo "⚠️  Конфликт: $new_name уже существует, пропускаю $file"
+            return 1
+        fi
+        echo "✏️  Переименование: $base → ${name}.mp3"
+        mv "$file" "$new_name"
+        return 0
+    fi
+    return 2  # Не требовалось переименование
+}
+
+rename_uppercase_mp3() {
+    local file="$1"
+    local dir=$(dirname "$file")
+    local base=$(basename "$file")
+    local ext="${base##*.}"
+    local name="${base%.*}"
+    
+    # Проверяем, есть ли заглавные буквы в расширении
+    if [[ "$ext" =~ [A-Z] ]]; then
+        local new_name="$dir/${name}.mp3"
+        if [[ -e "$new_name" ]]; then
+            echo "⚠️  Конфликт: $new_name уже существует, пропускаю $file"
+            return 1
+        fi
+        echo "✏️  Переименование: $base → ${name}.mp3"
+        mv "$file" "$new_name"
+        return 0
+    fi
+    return 2
+}
+
+# === Основная логика ===
+
+echo "🎵 all2mp3 — конвертер аудиоколлекции"
+echo "======================================="
+echo "Исходная папка: $SRC_DIR"
+if [[ -n "$DST_DIR" ]]; then
+    echo "Целевая папка:  $DST_DIR"
+    mkdir -p "$DST_DIR"
+else
+    echo "Целевая папка:  (рядом с оригиналами)"
+fi
+echo ""
+
+# Проверяем, что исходная папка существует
+if [[ ! -d "$SRC_DIR" ]]; then
+    echo "❌ Ошибка: папка $SRC_DIR не найдена"
+    exit 1
+fi
+
+# === Этап 1: Переименование .MP3 → .mp3 ===
+echo "📝 Этап 1: Приведение расширений .MP3 к нижнему регистру..."
+echo "-----------------------------------------------------------"
+
+# Process substitution < <(...) решает проблему "через один"
+while IFS= read -r -d '' file; do
+    if rename_uppercase_mp3 "$file"; then
+        ((renamed++))
+    fi
+done < <(find "$SRC_DIR" -type f -iname "*.mp3" ! -name "*.mp3" -print0 2>/dev/null)
+# Пояснение: -iname "*.mp3" находит все варианты регистра,
+# а ! -iname "*.mp3" исключает уже правильные (нижний регистр)
+
+echo "Переименовано файлов: $renamed"
+echo ""
+
+# === Этап 2: Конвертация остальных форматов ===
+echo "🎧 Этап 2: Конвертация аудиоформатов в MP3..."
+echo "-----------------------------------------------------------"
+
+while IFS= read -r -d '' file; do
+    # Получаем относительный путь для сохранения структуры
+    rel_path="${file#$SRC_DIR/}"
+    rel_dir=$(dirname "$rel_path")
+    base_name=$(basename "$file")
+    name="${base_name%.*}"
+    
+    # Определяем целевой путь
+    if [[ -n "$DST_DIR" ]]; then
+        dst_dir="$DST_DIR/$rel_dir"
+    else
+        dst_dir=$(dirname "$file")
+    fi
+    
+    dst_file="$dst_dir/${name}.mp3"
+    
+    # Проверяем, не является ли файл уже MP3 в правильном регистре
+    # (такое может быть, если мы уже переименовали его на этапе 1)
+    ext="${base_name##*.}"
+    if [[ "${ext,,}" == "mp3" ]]; then
+        ((skipped++))
+        continue
+    fi
+    
+    # Проверяем коллизии
+    if [[ -e "$dst_file" ]]; then
+        echo "⚠️  Конфликт: $(basename "$dst_file") уже существует, пропускаю"
+        ((skipped++))
+        continue
+    fi
+    
+    # Создаём целевую директорию
+    mkdir -p "$dst_dir"
+    
+    # Конвертируем
+    if convert_to_mp3 "$file" "$dst_file"; then
+        echo "   ✓ $(basename "$dst_file")"
+        ((converted++))
+        
+        # Удаляем оригинал, если конвертация в ту же директорию
+        if [[ -z "$DST_DIR" ]]; then
+            rm "$file"
+        fi
+    else
+        echo "   ✗ Ошибка конвертации: $base_name"
+        ((errors++))
+    fi
+done < <(find "$SRC_DIR" -type f -regextype posix-extended \
+    -iregex ".*\.($AUDIO_EXTENSIONS)$" -print0)
+
+echo ""
+echo "======================================="
+echo "📊 Итог:"
+echo "   Сконвертировано: $converted"
+echo "   Переименовано:   $renamed"
+echo "   Пропущено:       $skipped"
+echo "   Ошибок:          $errors"
+echo "======================================="
+
