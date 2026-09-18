@@ -5,3 +5,4 @@ node_modules/
 .venv/
 scripts/models/
 scripts/__pycache__/
+*.deb
