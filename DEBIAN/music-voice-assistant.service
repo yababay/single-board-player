@@ -6,14 +6,18 @@ Requires=music-ai-search.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=/media/portable/.3f-lab/_projects/single-board-player
+
+# 🌟 ЗАЩИТА ОТ ДВОЙНОГО КЛИКА И ОЧЕРЕДИ:
+# Если сервис вызывается чаще, чем раз в 12 секунд, systemd просто проигнорирует повторный вызов
+TriggerLimitIntervalSec=12s
+TriggerLimitBurst=1
+
 # Указываем фоновому сервису systemd адрес вашего текущего экрана X-сервера
 Environment="DISPLAY=:0"
 Environment="XAUTHORITY=%h/.Xauthority"
 Environment="PATH=/media/portable/.3f-lab/_projects/single-board-player/.venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=python3 scripts/voice-assistant.py
 
-# Короткий запуск нашего основного скрипта автоматизации
+WorkingDirectory=/media/portable/.3f-lab/_projects/single-board-player
 ExecStart=python3 scripts/voice-assistant.py
 
 [Install]

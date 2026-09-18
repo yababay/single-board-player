@@ -110,6 +110,79 @@ def get_embedding(text: str):
     embedding = model.encode(f"query: {text}").tolist()
     return {"embedding": embedding}
 
+from fastapi import BackgroundTasks
+
+def sync_missing_embeddings():
+    """Фоновая функция: находит строки с NULL-векторами и считает их на прогретой модели"""
+    global model, db_conn
+    
+    try:
+        # Открываем изолированный курсор
+        cur = db_conn.cursor()
+        
+        # Находим только те строки, которые триггер пометил как измененные (embedding IS NULL)
+        cur.execute("""
+            SELECT id, playlist_number, track_number, title, artist, album, genre, style, form, meta_hash 
+            FROM tracks 
+            WHERE embedding IS NULL;
+        """)
+        rows = cur.fetchall()
+        
+        if not rows:
+            cur.close()
+            return
+            
+        print(f"🌟 [Фоновый эмбеддер]: Найдено строк для пересчета: {len(rows)}", file=sys.stderr)
+        
+        # Каноническая сборка текста для нашей ИИ-модели
+        texts_to_encode = []
+        for row in rows:
+            db_id, pl_num, tr_num, title, artist, album, genre, style, form, old_hash = row
+            parts = []
+            if title: parts.append(f"Название: {title}")
+            if artist: parts.append(f"Исполнитель: {artist}")
+            if album: parts.append(f"Альбом: {album}")
+            if genre: parts.append(f"Жанр: {genre}")
+            if style: parts.append(f"Стиль: {style}")
+            if form: parts.append(f"Форма: {form}")
+            texts_to_encode.append(" ; ".join(parts))
+            
+        # Мгновенно генерируем векторы на уже горячей модели в ОЗУ пачкой!
+        embeddings = model.encode(texts_to_encode, batch_size=32)
+        
+        # Записываем новые векторы обратно в Postgres
+        for i, row in enumerate(rows):
+            db_id = row[0]
+            single_vector = embeddings[i].tolist()
+            
+            cur.execute("""
+                UPDATE tracks 
+                SET embedding = %s 
+                WHERE id = %s;
+            """, (single_embedding, db_id))
+            
+        db_conn.commit()
+        cur.close()
+        print(f"✅ [Фоновый эмбеддер]: Успешно синхронизировано треков: {len(rows)}", file=sys.stderr)
+        
+    except Exception as e:
+        print(f"❌ Ошибка фонового пересчета векторов: {e}", file=sys.stderr)
+
+
+@app.post("/refresh")
+def refresh_embeddings_endpoint(background_tasks: BackgroundTasks):
+    """
+    Эндпоинт мгновенного вызова синхронизации.
+    Добавляет задачу в фоновый поток FastAPI и сразу возвращает статус 'OK',
+    не заставляя пользователя ждать окончания вычислений.
+    """
+    background_tasks.add_task(sync_missing_embeddings)
+    return {"status": "accepted", "message": "Синхронизация векторов запущена в фоновом потоке сервера."}
+
+
+
 if __name__ == "__main__":
     # Запускаем локальный веб-сервер на порту 8080
     uvicorn.run(app, host="127.0.0.1", port=8080, log_level="warning")
+
+

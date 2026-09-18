@@ -117,5 +117,22 @@ def main():
     cur.close()
     conn.close()
 
+    # ... (ваш существующий код импорта, коммита и закрытия соединения с БД) ...
+
+    # 🌟 БЕСШОВНЫЙ ФИНАЛ: Пинаем ИИ-сервер для фонового пересчета векторов
+    LOCAL_REFRESH_URL = EMBED_URL.replace('/embed', '/refresh')
+    
+    print("\n🔔 Отправка запроса на фоновую синхронизацию ИИ-векторов...", file=sys.stderr)
+    try:
+        # Отправляем POST запрос на наш новый эндпоинт
+        response = requests.post(LOCAL_REFRESH_URL, timeout=3)
+        if response.status_code == 200:
+            print("✅ Запрос принят! Сервер пересчитывает новые векторы в фоне.", file=sys.stderr)
+        else:
+            print(f"⚠️ Сервер вернул неожиданный ответ: {response.status_code}", file=sys.stderr)
+    except requests.exceptions.RequestException as e:
+        print(f"⚠️ Не удалось связаться с ИИ-сервером для автообновления векторов: {e}", file=sys.stderr)
+        print("💡 Ничего страшного. Сервер обновит их при следующем ручном вызове или перезапуске.", file=sys.stderr)
+
 if __name__ == "__main__":
     main()

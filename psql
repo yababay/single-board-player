@@ -1,0 +1,1 @@
+select distinct artist form from tracks where genre like %Джаз% order by artist -d player

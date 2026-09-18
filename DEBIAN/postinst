@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+echo "Настройка базы данных PostgreSQL 17..."
+# Создаем пользователя и базу данных, если их нет
+su - postgres -c "psql -c \"CREATE USER player WITH SUPERUSER;\"" || true
+su - postgres -c "createdb player" || true
+
+echo "Инициализация расширения pgvector и структуры..."
+su - postgres -c "psql -d player -c \"CREATE EXTENSION IF NOT EXISTS vector;\""
+
+# Копируем файлы скриптов в их постоянное системное место
+cp -r /usr/share/single-board-player/scripts/* /var/lib/postgresql/
+
+echo "Пакет успешно установлен. Не забудьте восстановить базу из дампа: psql -d player -f player_semantic_db.sql"
+
