@@ -6,7 +6,7 @@ BUILD_DIR    = $(HOME_DIR)/deb_build/$(PROJECT_NAME)
 MUSIC_DIR    = $(HOME_DIR)/Music
 BACKUP_DIR   = $(HOME_DIR)/Backups
 
-.PHONY: db_backup clean prepare build deb git
+.PHONY: db_backup clean prepare build deb git psql
 
 # Главная сквозная команда сборки
 all: prepare build
