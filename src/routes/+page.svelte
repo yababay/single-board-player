@@ -138,7 +138,14 @@
 					<p class="text-muted" style="margin-top: 10px; font-size: .875rem;">💡 Рекомендации формируются на основе векторного поиска по архивным метаданным и инструкциям ИИ.</p>
 				</div>
 			{/if}
+			
+			<!-- Отладочные и системные сообщения -->
+			{#if state.statusMessage}
+				<div id="status" style="color: {state.statusColor}">{state.statusMessage}</div>
+			{/if}
+
 			<!-- Горизонтальная панель управления (Toolbar): Скрываем её на вкладке тестирования, чтобы не путать кнопки -->
+
 			{#if state.activeTab !== 'testing'}
 				<div class="toolbar-panel">
 					<button class="btn-toolbar btn-warning" onclick={() => actions.clearExpertTags()}>
@@ -152,14 +159,12 @@
 		</section>
 	{/if}
 
-
-	<!-- 💡 В самом низу остаются ТОЛЬКО отладочные, короткие системные сообщения -->
-	{#if state.statusMessage}
-		<div id="status" style="color: {state.statusColor}">{state.statusMessage}</div>
-	{/if}
 </div>
 
 <style>
+	#status {
+		font-size: smaller;
+	}
 	h3 { margin-bottom: 1.7rem; color: #333; font-size: 1.25rem; }
 	.container { position: relative; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 100%; max-width: 800px; }
 	.logout-link { 
