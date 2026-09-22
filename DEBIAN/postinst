@@ -1,36 +1,48 @@
 #!/bin/sh
 set -e
 
+# Целевой пользователь нашей музыкальной системы
+TARGET_USER="player"
 SHARE_DIR="/usr/share/single-board-player"
 
-echo "⚙️ [Деплой]: Разворачивание изолированного виртуального окружения Python..."
-cd "$SHARE_DIR"
+echo "⚙️ [Деплой]: Шаг 1. Перевод системы в чистый консольный режим..."
+systemctl set-default multi-user.target
 
-# Пересоздаем .venv, если папка пуста
+echo "⚙️ [Деплой]: Шаг 2. Включение режима lingering (вечная работа служб без SSH) для $TARGET_USER..."
+loginctl enable-linger "$TARGET_USER"
+
+echo "⚙️ [Деплой]: Шаг 3. Запись канонической конфигурации WirePlumber (Обход блокировки logind)..."
+mkdir -p /etc/wireplumber/wireplumber.conf.d
+cat << 'EOF' > /etc/wireplumber/wireplumber.conf.d/99-headless-bluetooth.conf
+wireplumber.profiles = {
+  main = {
+    monitor.bluez.seat-monitoring = disabled
+  }
+}
+EOF
+
+echo "⚙️ [Деплой]: Шаг 4. Настройка изоляции виртуального окружения Python..."
+cd "$SHARE_DIR"
 if [ ! -d ".venv" ]; then
     python3 -m venv .venv
 fi
 
-# 🌟 ИСПРАВЛЕНО: Точный путь к bin/pip3 и принудительный процессорный (CPU) Torch
-# Чтобы не перегружать 4 ГБ ОЗУ, сначала ставим легковесный CPU Torch, а затем остальной список
-echo "📦 [Деплой]: Установка базовых ИИ-зависимостей (CPU-версии)..."
-.venv/bin/pip3 install torch --index-url http://download.pytorch.org/whl/cpu/
+echo "📦 [Деплой]: Установка легковесного процессорного Torch (CPU)..."
+.venv/bin/pip3 install torch --index-url https://pytorch.org
 
-echo "📦 [Деплой]: Установка остальных пакетов из requirements.txt..."
+echo "📦 [Деплой]: Установка остальных Python-пакетов из requirements.txt..."
 .venv/bin/pip3 install -r requirements.txt
 
+# Выставляем права на системную папку скриптов
+chown -R $TARGET_USER:$TARGET_USER $SHARE_DIR
+
 echo "=========================================================================="
-echo "🎉 Пакет single-board-player успешно установлен!"
+echo "🎉 Системная часть single-board-player успешно установлена!"
 echo "=========================================================================="
-echo "Для финального запуска системы выполните следующие шаги на Cubi вручную:"
-echo "1. Создайте пользователя базы данных и саму СУБД:"
-echo "   sudo -u postgres createuser -s player"
-echo "   sudo -u postgres createdb -O player player"
-echo "2. Подключите расширение pgvector и восстановите дамп медиатеки:"
-echo "   psql -d player -U player -c 'CREATE EXTENSION IF NOT EXISTS vector;'"
-echo "   psql -d player -U player -f /путь/к/вашему/player_semantic_db.sql"
-echo "3. Положите ИИ-модели в каталог: $SHARE_DIR/models/"
-echo "4. Создайте файл конфигурации окружения: $SHARE_DIR/.env"
+echo "⚠️  РЕКОМЕНДАЦИЯ: Пожалуйста, перезагрузите сервер (sudo reboot),"
+echo "   чтобы система применила консольный профиль и отключила GUI-зависимости."
+echo "После перезагрузки войдите под пользователем $TARGET_USER и запустите:"
+echo "   /usr/share/single-board-player/scripts/user-init-audio.sh"
 echo "=========================================================================="
 
 exit 0

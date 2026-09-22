@@ -45,10 +45,13 @@ clean:
 ## 2. Создание структуры папок и копирование файлов
 prepare: db_backup clean
 	mkdir -p $(BUILD_DIR)/DEBIAN
-	mkdir -p $(BUILD_DIR)/usr/share/single-board-player
+	mkdir -p $(BUILD_DIR)/usr/share/single-board-player/scripts
 	mkdir -p $(BUILD_DIR)/etc/systemd/user
 	mkdir -p $(BUILD_DIR)/var/lib/mpd/playlists
 	mkdir -p $(BUILD_DIR)/usr/local/bin
+
+	# Создаем системную директорию настроек WirePlumber внутри пакета
+	mkdir -p $(BUILD_DIR)/etc/wireplumber/wireplumber.conf.d
 	
 	# Копируем управляющие манифесты
 	cp $(PROJECT_DIR)/DEBIAN/control $(BUILD_DIR)/DEBIAN/
@@ -62,6 +65,7 @@ prepare: db_backup clean
 	cp $(PROJECT_DIR)/scripts/query_normalizer.py $(BUILD_DIR)/usr/share/single-board-player/
 	cp $(PROJECT_DIR)/requirements.txt $(BUILD_DIR)/usr/share/single-board-player/
 	cp $(PROJECT_DIR)/scripts/yaml2rag.py $(BUILD_DIR)/usr/local/bin/yaml2rag
+	cp $(PROJECT_DIR)/scripts/user-init-audio.sh $(BUILD_DIR)/usr/share/single-board-player/scripts
 	
 	# Копируем плейлисты
 	cp $(MUSIC_DIR)/*.m3u $(BUILD_DIR)/var/lib/mpd/playlists
@@ -69,6 +73,9 @@ prepare: db_backup clean
 	# Копируем systemd-юниты
 	cp $(PROJECT_DIR)/DEBIAN/music-ai-search.service $(BUILD_DIR)/etc/systemd/user/
 	cp $(PROJECT_DIR)/DEBIAN/music-voice-assistant.service $(BUILD_DIR)/etc/systemd/user/
+	
+	# Записываем вашу блюз/джаз находку, отключающую блокировку logind для безголового сервера!
+	echo 'wireplumber.profiles = { main = { monitor.bluez.seat-monitoring = disabled } }' > $(BUILD_DIR)/etc/wireplumber/wireplumber.conf.d/99-headless-bluetooth.conf
 
 ## 3. Финальная компиляция пакета утилитой dpkg-deb
 build:
