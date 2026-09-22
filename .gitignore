@@ -3,6 +3,7 @@ node_modules/
 .svelte-kit/
 .env
 .venv/
-scripts/models/
+models/
 scripts/__pycache__/
 *.deb
+

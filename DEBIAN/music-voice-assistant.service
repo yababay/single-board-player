@@ -15,10 +15,10 @@ TriggerLimitBurst=1
 # Указываем фоновому сервису systemd адрес вашего текущего экрана X-сервера
 Environment="DISPLAY=:0"
 Environment="XAUTHORITY=%h/.Xauthority"
-Environment="PATH=/media/portable/.3f-lab/_projects/single-board-player/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=/usr/share/single-board-player/.venv/bin:/usr/local/bin:/usr/bin:/bin"
 
-WorkingDirectory=/media/portable/.3f-lab/_projects/single-board-player
-ExecStart=python3 scripts/voice-assistant.py
+WorkingDirectory=/usr/share/single-board-player
+ExecStart=python3 music-voice-assistant.py
 
 [Install]
 WantedBy=default.target

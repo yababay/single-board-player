@@ -6,7 +6,7 @@ BUILD_DIR    = $(HOME_DIR)/deb_build/$(PROJECT_NAME)
 MUSIC_DIR    = $(HOME_DIR)/Music
 BACKUP_DIR   = $(HOME_DIR)/Backups
 
-.PHONY: db_backup clean prepare build deb git psql
+.PHONY: db_backup clean prepare build deb git psql db_restore model_backup
 
 # Главная сквозная команда сборки
 all: prepare build
@@ -23,24 +23,20 @@ git: git_local git_remote
 
 # Работа с базой данных
 psql:
-	psql -d player
+	psql -d player -U player
 
 db_backup:
-	# Создание дампа базы данных player
-	# Используйте эту команду для создания резервной копии базы данных
-	pg_dump -h localhost -U mabel -F p --clean -b -f "$(MUSIC_DIR)/player_semantic_db.sql" player
+	# 🌟 СИНХРОНИЗИРОВАНО: Работаем от имени пользователя player
+	pg_dump -h localhost -U player -F p --clean -b -f "$(MUSIC_DIR)/player_semantic_db.sql" player
 
 db_restore:
-	# Восстановление базы данных из дампа
-	# Используйте эту команду, если у вас есть дамп базы данных player.dump
-	psql -h localhost -U postgres -d player -f $(MUSIC_DIR)/player_semantic_db.sql
+	psql -h localhost -U player -d player -f $(MUSIC_DIR)/player_semantic_db.sql
 
 model_backup:
-	# Создание резервной копии модели
-	# Используйте эту команду для создания резервной копии модели
-	tar -cvf $(BACKUP_DIR)/$(PROJECT_NAME)-models.tar -C scripts/ models
+	# 🌟 СИНХРОНИЗИРОВАНО: Архивация папки models на один уровень выше scripts
+	tar -cvf $(BACKUP_DIR)/$(PROJECT_NAME)-models.tar models/
 
-#  Сборка
+# Сборка
 ## 1. Очистка старых следов сборки
 clean:
 	rm -rf $(BUILD_DIR)
@@ -49,26 +45,26 @@ clean:
 ## 2. Создание структуры папок и копирование файлов
 prepare: db_backup clean
 	mkdir -p $(BUILD_DIR)/DEBIAN
-	mkdir -p $(BUILD_DIR)/usr/share/single-board-player/scripts
+	mkdir -p $(BUILD_DIR)/usr/share/single-board-player
 	mkdir -p $(BUILD_DIR)/etc/systemd/user
 	mkdir -p $(BUILD_DIR)/var/lib/mpd/playlists
 	mkdir -p $(BUILD_DIR)/usr/local/bin
 	
-	# Копируем управляющие манифесты (которые мы подготовим ниже)
+	# Копируем управляющие манифесты
 	cp $(PROJECT_DIR)/DEBIAN/control $(BUILD_DIR)/DEBIAN/
 	cp $(PROJECT_DIR)/DEBIAN/postinst $(BUILD_DIR)/DEBIAN/
 	chmod +x $(BUILD_DIR)/DEBIAN/postinst
 	
-	# Копируем наши отлаженные рабочие скрипты пульта
-	cp $(PROJECT_DIR)/scripts/local-search-server.py $(BUILD_DIR)/usr/share/single-board-player/scripts/
-	cp $(PROJECT_DIR)/scripts/voice-assistant.py $(BUILD_DIR)/usr/share/single-board-player/scripts/
-	cp $(PROJECT_DIR)/scripts/playlist_checker.py $(BUILD_DIR)/usr/share/single-board-player/scripts/
-	cp $(PROJECT_DIR)/scripts/query_normalizer.py $(BUILD_DIR)/usr/share/single-board-player/scripts/
+	# Копируем наши отлаженные рабочие скрипты пульта (ПРЯМО В КОРЕНЬ ПАКЕТА)
+	cp $(PROJECT_DIR)/scripts/music-ai-search.py $(BUILD_DIR)/usr/share/single-board-player/
+	cp $(PROJECT_DIR)/scripts/music-voice-assistant.py $(BUILD_DIR)/usr/share/single-board-player/
+	cp $(PROJECT_DIR)/scripts/playlist_checker.py $(BUILD_DIR)/usr/share/single-board-player/
+	cp $(PROJECT_DIR)/scripts/query_normalizer.py $(BUILD_DIR)/usr/share/single-board-player/
+	cp $(PROJECT_DIR)/requirements.txt $(BUILD_DIR)/usr/share/single-board-player/
 	cp $(PROJECT_DIR)/scripts/yaml2rag.py $(BUILD_DIR)/usr/local/bin/yaml2rag
 	
-	# Копируем плейлисты и свежий 21-мегабайтный дамп СУБД для автодеплоя
+	# Копируем плейлисты
 	cp $(MUSIC_DIR)/*.m3u $(BUILD_DIR)/var/lib/mpd/playlists
-	cp $(MUSIC_DIR)/player_semantic_db.sql $(BUILD_DIR)/usr/share/single-board-player/
 	
 	# Копируем systemd-юниты
 	cp $(PROJECT_DIR)/DEBIAN/music-ai-search.service $(BUILD_DIR)/etc/systemd/user/
@@ -81,3 +77,4 @@ build:
 	@echo "========================================================="
 	@echo "🎉 Успех! Пакет single-board-player.deb собран в корне проекта."
 	@echo "========================================================="
+
