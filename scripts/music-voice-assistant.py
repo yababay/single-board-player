@@ -1,242 +1,100 @@
 #!/usr/bin/env python3
-import os
 import sys
-import re
-import wave
-import json
+import os
 import subprocess
 import requests
-from pathlib import Path
-from dotenv import load_dotenv
-from vosk import Model, KaldiRecognizer
-from yargy.pipelines import morph_pipeline
-from playlist_checker import check_playlist_phrase
 
-# 1. Загрузка инфраструктуры и окружения
-BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(dotenv_path=BASE_DIR / '.env')
+# Сетевой IP-адрес вашего MSI Cubi
+CUBI_SERVER_IP = "192.168.0.111"  
+SERVER_URL = f"http://{CUBI_SERVER_IP}:8080/voice-search"
 
-FOLDER_ID = os.getenv("YC_FOLDER_ID")
-API_KEY = os.getenv("YC_API_KEY")
-VECTOR_STORE_ID = os.getenv("YC_VECTOR_STORE_ID")
-MODEL_NAME = os.getenv("YC_MODEL_NAME")
-ASSISTANT_ENDPOINT = os.getenv("YC_ASSISTANT_ENDPOINT")
+AUDIO_RAW = "/tmp/client_voice.raw"
+AUDIO_WAV = "/tmp/client_voice.wav"
 
-# Локальные сетевые параметры ИИ-сервера
-LOCAL_HOST = "127.0.0.1"
-PORT_PATH = ":8080/search"
-LOCAL_SEARCH_URL = f"http://{LOCAL_HOST}{PORT_PATH}"
-
-# Файлы для записи звука. Vosk требует строго чистый RAW/WAV 16кГц Моно 16бит
-AUDIO_RAW = "/tmp/voice_request.raw"
-AUDIO_WAV = "/tmp/voice_request.wav"
-
-def record_audio():
-    """Запись звука с отправкой нативного уведомления на рабочий стол"""
-    # 🌟 ВИЗУАЛИЗАЦИЯ: Отправляем всплывающее окошко на экран десктопа
-    # Параметры: заголовок, текст, иконка микрофона и время удержания 5000 мс (5 секунд)
-    notify_start = (
-        'notify-send -t 5000 -i audio-input-microphone '
-        '"Голосовой ассистент" '
-        '"Слушаю вас! У вас есть 5 секунд, чтобы озвучить свой запрос в микрофон."'
-    )
-    subprocess.run(notify_start, shell=True)
-
-    print("=== Слушаю вашу команду (запись 5 секунд) ===", file=sys.stderr)
-    
-    # Записываем сырой поток (5 секунд)
-    cmd_record = f"arecord -f cd -t raw -d 5 > {AUDIO_RAW}"
-    subprocess.run(cmd_record, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    
-    if not os.path.exists(AUDIO_RAW) or os.path.getsize(AUDIO_RAW) == 0:
-        print("Ошибка: Аудиофайл не записался.", file=sys.stderr)
-        # Сообщаем об ошибке на экран, если микрофон отключен
-        subprocess.run('notify-send -i dialog-error "Ошибка" "Микрофон не записал звук"', shell=True)
-        sys.exit(1)
-        
-    # Конвертация в WAV моно для Vosk
-    cmd_convert = f"ffmpeg -y -f s16le -ar 44100 -ac 2 -i {AUDIO_RAW} -ar 16000 -ac 1 {AUDIO_WAV}"
-    subprocess.run(cmd_convert, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-def recognize_speech_local():
-    """Локальное распознавание речи на процессоре через Vosk"""
-    print("Локальное распознавание речи через Vosk...", file=sys.stderr)
-    
-    current_dir = Path(__file__).resolve().parent
-    model_path = str(current_dir / "models" / "vosk-model-small-ru")
-    
-    if not os.path.exists(model_path):
-        print(f"Ошибка: Модель Vosk не найдена по пути {model_path}", file=sys.stderr)
-        sys.exit(1)
-        
-    # Загружаем модель и настраиваем распознаватель под частоту 16000 Гц
-    model = Model(model_path)
-    wf = wave.open(AUDIO_WAV, "rb")
-    rec = KaldiRecognizer(model, wf.getframerate())
-    
-    # Читаем и сканируем WAV-файл
-    data = wf.readframes(wf.getnframes())
-    wf.close()
-    
-    if rec.AcceptWaveform(data):
-        res = json.loads(rec.Result())
-    else:
-        res = json.loads(rec.FinalResult())
-        
-    # Vosk возвращает текст в поле 'text'
-    return res.get('text', '')
-
-def clean_text_query(text):
-    """Отсечение управляющих глаголов активации микрофона из кириллицы"""
-    if not text:
-        return ""
-    text = text.lower().strip()
-    # Используем чистый \s+ вместо [[:space:]]*, чтобы убрать предупреждения Python
-    text = re.sub(r'^(найди|найти|включи|поставь|вруби|запусти|слушаю|хочу_послушать|хочу\s+послушать)\s*', '', text)
-    return text.strip(', ')
-
-def control_mpc(playlist_num, track_num):
-    """Физическое выполнение команд переключения трека в mpc"""
-    formatted_num = f"{int(playlist_num):04d}"
-    try:
-        playlists_list = subprocess.check_output("mpc lsplaylists", shell=True, text=True).splitlines()
-        target_playlist = None
-        for pl in playlists_list:
-            if re.match(rf'^{formatted_num}-', pl):
-                target_playlist = pl
-                break
-                
-        if not target_playlist:
-            print(f"Ошибка: Плейлист {formatted_num} не найден в базе MPD.", file=sys.stderr)
-            sys.exit(1)
-            
-        print(f"Запуск плеера: {target_playlist} ➡️ Трек №{track_num}", file=sys.stderr)
-        subprocess.run("mpc clear", shell=True, stdout=subprocess.DEVNULL)
-        subprocess.run(f'mpc load "{target_playlist}"', shell=True, stdout=subprocess.DEVNULL)
-        subprocess.run(f"mpc play {track_num}", shell=True, stdout=subprocess.DEVNULL)
-    except Exception as e:
-        print(f"Ошибка управления mpc: {e}", file=sys.stderr)
-        sys.exit(1)
+def show_notification(text, icon="audio-speakers", title="Голосовой пульт", timeout=4000):
+    """Служебная функция отправки уведомления на рабочий стол десктопа"""
+    # Флаг -h string:x-canonical-private-synchronous:anything заставляет уведомления 
+    # плавно обновлять друг друга в одном окне, не создавая надоедливую стопку окон!
+    cmd = [
+        'notify-send',
+        '-t', str(timeout),
+        '-i', icon,
+        '-h', 'string:x-canonical-private-synchronous:music-pulse',
+        title,
+        text
+    ]
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def main():
-    # 🌟 АВТОМАТИЧЕСКИЙ ПРОГРЕВ ИИ-СЕРВЕРА СТАРТ
-    print("Проверка готовности ИИ-сервера...", file=sys.stderr)
+    # 🌟 1. СИГНАЛ СТАРТА: Приглашаем пользователя говорить
+    show_notification(
+        "Слушаю вас! Озвучьте свой запрос в микрофон...", 
+        icon="audio-input-microphone", 
+        timeout=5000
+    )
     
-    # Отправляем легкий холостой запрос. Выставляем timeout=40 секунд, 
-    # чтобы сервер успел не спеша прочитать все 1.3 ГБ весов с жесткого диска.
-    try:
-        ping_res = requests.get(LOCAL_SEARCH_URL, params={"query": "прогрев"}, timeout=140)
-        ping_res.raise_for_status()
-        print("ИИ-сервер успешно проснулся и готов к работе!", file=sys.stderr)
-    except Exception as e:
-        print(f"Ошибка прогрева сервера: {e}", file=sys.stderr)
-        # Если сервер лежит намертво, выводим ошибку на экран и выходим
-        subprocess.run('notify-send -i dialog-error "Сбой системы" "ИИ-сервер не отвечает на пинг"', shell=True)
-        sys.exit(1)
-    # 🌟 АВТОМАТИЧЕСКИЙ ПРОГРЕВ ИИ-СЕРВЕРА КОНЕЦ
-
-    # Шаг 1. Теперь, когда сервер точно в ОЗУ, спокойно включаем микрофон и визуализацию
-    record_audio()
+    # Записываем 5 секунд сырого звука с микрофона десктопа
+    subprocess.run(f"arecord -f cd -t raw -d 5 > {AUDIO_RAW}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
-    # Шаг 2. Распознаем речь на локальном процессоре (Vosk)
-    raw_text = recognize_speech_local()
-    print(f"Распознано локально (Vosk): \"{raw_text}\"", file=sys.stderr)
+    # Конвертируем в идеальный для Vosk формат (16000Гц, 1 канал, WAV)
+    subprocess.run(f"ffmpeg -y -f s16le -ar 44100 -ac 2 -i {AUDIO_RAW} -ar 16000 -ac 1 {AUDIO_WAV}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
-    # 🌟 БЫСТРЫЙ ПЕРЕХВАТ КОМАНД УПРАВЛЕНИЯ ПЛЕЕРОМ
-    text_lower = raw_text.lower().strip()
-    
-    if any(word in text_lower for word in ['пауза', 'стоп', 'останови']):
-        subprocess.run("mpc pause", shell=True)
-        subprocess.run('notify-send -i media-playback-pause "Плеер" "Пауза"', shell=True)
-        return
-        
-    if any(word in text_lower for word in ['играй', 'продолжи', 'сними с паузы']):
-        subprocess.run("mpc play", shell=True)
-        subprocess.run('notify-send -i media-playback-start "Плеер" "Воспроизведение"', shell=True)
-        return
-        
-    if any(word in text_lower for word in ['следующий', 'вперед', 'дальше']):
-        subprocess.run("mpc next", shell=True)
-        subprocess.run('notify-send -i media-skip-forward "Плеер" "Следующий трек"', shell=True)
-        return
-
-    if any(word in text_lower for word in ['предыдущий', 'назад']):
-        subprocess.run("mpc prev", shell=True)
-        subprocess.run('notify-send -i media-skip-backward "Плеер" "Предыдущий трек"', shell=True)
-        return
-        
-    if 'громче' in text_lower:
-        subprocess.run("mpc volume +10", shell=True)
-        return
-        
-    if 'тише' in text_lower:
-        subprocess.run("mpc volume -10", shell=True)
-        return
-
-    # 🌟 АНАЛИЗ ЧИСЕЛ ЧЕРЕЗ yargy2
-    numbers_found = check_playlist_phrase(text_lower)
-    
-    if numbers_found:
-            
-        print(f"Выделено число: {numbers_found}", file=sys.stderr)
-        control_mpc(numbers_found, 1)
-        return
-        
-    # 🌟 КОНЕЦ БЛОКА БЫСТРЫХ КОМАНД
-
-    # Если прямых команд на плейлист нет — шлем исходный текст на ИИ-сервер
-    clean_text = clean_text_query(raw_text)
-
-    # Шаг 3. Очищаем текст от мусорных глаголов
-    clean_text = clean_text_query(raw_text)
-    if not clean_text:
-        print("Ошибка: Запрос пуст.", file=sys.stderr)
+    if not os.path.exists(AUDIO_WAV):
+        show_notification("Ошибка: Аудиофайл записи не сформирован.", icon="dialog-error")
         sys.exit(1)
         
-    # Шаг 4. Отправляем чистый текст на наш ЛОКАЛЬНЫЙ ИИ-сервер FastAPI
-    # Здесь timeout можно вернуть к быстрым 10 секундам, ведь сервер уже прогрет!
-    print(f"Запрос к локальному ИИ-серверу для: \"{clean_text}\"...", file=sys.stderr)
+    show_notification("Обработка и распознавание запроса...", icon="applications-science", timeout=2000)
+    
     try:
-        response = requests.get(LOCAL_SEARCH_URL, params={"query": clean_text}, timeout=10)
-        response.raise_for_status()
-        srv_data = response.json()
-        
-        if srv_data.get("status") == "success":
-            debug_msg = srv_data.get("debug_info")
-            print(debug_msg, file=sys.stderr)
+        # Отправляем аудиофайл по сети на Cubi
+        with open(AUDIO_WAV, 'rb') as f:
+            files = {'file': ('voice.wav', f, 'audio/wav')}
+            response = requests.post(SERVER_URL, files=files, timeout=10)
             
-            ai_command = srv_data.get("command")
-            pl_num, tr_num = ai_command.split(';')
+        if response.status_code == 200:
+            result = response.json()
+            status = result.get("status")
+            mode = result.get("mode")
             
-            # Физически переключаем плеер mpc
-            control_mpc(pl_num, tr_num)
-            
-            # Перехватываем теги из mpc
-            try:
-                mpc_output = subprocess.check_output("mpc", shell=True, text=True).splitlines()
-                current_track = mpc_output[0].strip() if mpc_output else "Воспроизведение запущено"
-            except Exception:
-                current_track = "Воспроизведение запущено"
-            
-            # Итоговая визуализация на экране
-            notify_final = (
-                f'notify-send -t 6000 -i media-playlist-music '
-                f'"Вы сказали: «{raw_text}»" '
-                f'"{current_track}"'
-            )
-            subprocess.run(notify_final, shell=True)
-            
+            # 🌟 2. ДИНАМИЧЕСКИЙ РАЗБОР ОТВЕТОВ СЕРВЕРА СИСУБИ
+            if status == "success" and mode == "syntax":
+                cmd = result.get("command")
+                if cmd == "pause":
+                    show_notification("Плеер поставлен на паузу ⏸️", icon="media-playback-pause")
+                elif cmd == "play":
+                    show_notification("Плеер продолжает воспроизведение ▶️", icon="media-playback-start")
+                elif cmd == "volume_up":
+                    show_notification("Громкость увеличена 🔊", icon="audio-volume-high")
+                elif cmd == "volume_down":
+                    show_notification("Громкость уменьшена 🔉", icon="audio-volume-low")
+                elif cmd == "status":
+                    # Фича "Что играет?"
+                    track_info = result.get("track", "Информация о треке отсутствует.")
+                    show_notification(track_info, icon="media-optical-audio", title="🎵 Сейчас играет:")
+
+            elif status == "success" and mode == "syntax_yargy":
+                playlist_name = result.get("playlist", "Неизвестный")
+                show_notification(f"Загружен плейлист:\n{playlist_name} 🎶", icon="media-playlist-normal")
+                
+            elif status == "ignored":
+                reason = result.get("reason")
+                text = result.get("recognized_text", "")
+                if reason == "empty_speech":
+                    show_notification("Команда не распознана. Повторите громче.", icon="dialog-warning")
+                else:
+                    show_notification(f"Фраза: \"{text}\"\nСемантика e5 отключена offline.", icon="dialog-information")
         else:
-            print("Локальный ИИ ничего не нашёл.", file=sys.stderr)
-            subprocess.run(f'notify-send -i dialog-warning "Локальный ИИ" "Не удалось подобрать трек для: «{raw_text}»"', shell=True)
-    except Exception as e:
-        print(f"Ошибка связи с локальным ИИ-сервером: {e}", file=sys.stderr)
-        sys.exit(1)
+            show_notification(f"Ошибка связи с Cubi: Код {response.status_code}", icon="dialog-error")
+            
+    except requests.exceptions.RequestException as e:
+        show_notification("Не удалось связаться с ИИ-станцией по сети.", icon="network-disconnect")
+        print(f"Ошибка: {e}", file=sys.stderr)
         
-    # Чистим временные файлы в /tmp
-    for f in [AUDIO_RAW, AUDIO_WAV]:
-        if os.path.exists(f):
-            os.remove(f)
+    finally:
+        # Чистим временные файлы на десктопе
+        for f in [AUDIO_RAW, AUDIO_WAV]:
+            if os.path.exists(f): os.remove(f)
 
 if __name__ == "__main__":
     main()
+

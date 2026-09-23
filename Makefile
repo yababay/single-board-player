@@ -6,10 +6,15 @@ BUILD_DIR    = $(HOME_DIR)/deb_build/$(PROJECT_NAME)
 MUSIC_DIR    = $(HOME_DIR)/Music
 BACKUP_DIR   = $(HOME_DIR)/Backups
 
-.PHONY: db_backup clean prepare build deb git psql db_restore model_backup
+.PHONY: db_backup clean prepare build deb git psql db_restore model_backup catalog
 
 # Главная сквозная команда сборки
 all: prepare build
+
+deploy_service:
+	scp scripts/music-ai-search.py music:/usr/share/schulbert
+	scp DEBIAN/music-ai-search.service music:/home/player/.config/systemd/user
+	ssh music "systemctl --user daemon-reload && systemctl --user restart music-ai-search.service"
 
 # Работа с репозиторием
 git_local: 
@@ -30,7 +35,11 @@ db_backup:
 	pg_dump -h localhost -U player -F p --clean -b -f "$(MUSIC_DIR)/player_semantic_db.sql" player
 
 db_restore:
-	psql -h localhost -U player -d player -f $(MUSIC_DIR)/player_semantic_db.sql
+	# 🌟 СУПЕР-ХАК СТАРОЙ ШКОЛЫ:
+	# Читаем дамп, на лету заменяем 'mabel' на 'player' и безболезненно скармливаем Postgres
+	# Флаг --clean в дампе сам пересоздаст таблицы, а триггеры подхватятся автоматически
+	sed 's/OWNER TO mabel/OWNER TO player/g; s/TO mabel/TO player/g' $(MUSIC_DIR)/player_semantic_db.sql | psql -h localhost -U player -d player
+	
 
 model_backup:
 	# 🌟 СИНХРОНИЗИРОВАНО: Архивация папки models на один уровень выше scripts
@@ -84,4 +93,27 @@ build:
 	@echo "========================================================="
 	@echo "🎉 Успех! Пакет single-board-player.deb собран в корне проекта."
 	@echo "========================================================="
+
+# Генерация красивого печатного каталога всей фонотеки
+catalog:
+	@echo "📄 Экспорт каталога фонотеки в catalog.md..."
+	@psql -h localhost -U player -d player -t -A -c " \
+		SELECT case \
+			when pl_break.new_cat = 1000 then E'\n# Классическая музыка\n' \
+			when pl_break.new_cat = 2000 then E'\n# Рок-музыка\n' \
+			when pl_break.new_cat = 3000 then E'\n# Джаз\n' \
+			when pl_break.new_cat = 4000 then E'\n# Блюз\n' \
+			else '' \
+		end || E'\n## ' || t.playlist_number || '-' || lower(regexp_replace(coalesce(t.album, 'playlist'), '[^a-zA-Z0-9]+', '-', 'g')) || E'\n\n' || \
+		string_agg('* ' || t.artist || ' - ' || t.title, E'\n' order by t.track_number asc) \
+		FROM tracks t \
+		JOIN ( \
+			SELECT playlist_number, \
+			case when (playlist_number / 1000) * 1000 <> lag((playlist_number / 1000) * 1000, 1, 0) over (order by playlist_number) \
+			then (playlist_number / 1000) * 1000 else 0 end as new_cat \
+			FROM (SELECT DISTINCT playlist_number FROM tracks WHERE playlist_number >= 1000) distinct_pl \
+		) pl_break ON t.playlist_number = pl_break.playlist_number \
+		GROUP BY t.playlist_number, pl_break.new_cat \
+		ORDER BY t.playlist_number ASC;" > docs/catalog.md
+	@echo "✅ Каталог успешно сохранен в файл catalog.md"
 

@@ -1,188 +1,275 @@
-#!/usr/bin/env python3
 import os
-import re
-import sys
+import io
+import json
+import wave
+import subprocess
 from pathlib import Path
-import psycopg2
-from fastapi import FastAPI, HTTPException
-import uvicorn
-from sentence_transformers import SentenceTransformer
-from dotenv import load_dotenv
+from fastapi import FastAPI, UploadFile, File, Query
+from vosk import Model as VoskModel, KaldiRecognizer, SetLogLevel
 
-# Загружаем настройки базы данных из .env в корне проекта
-BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(dotenv_path=BASE_DIR / '.env')
+# 🌟 ИМПОРТЫ КОМПОНЕНТОВ YARGY
+from yargy import Parser, rule, or_
+from yargy.predicates import gram
+from yargy.pipelines import morph_pipeline
+from yargy.interpretation import fact
 
-PG_USER = os.getenv('PG_USER', 'mabel')
-PG_PASSWORD = os.getenv('PG_PASSWORD', '')
-PG_DATABASE = os.getenv('PG_DATABASE', 'player')
+# Глушим отладочный C++ шум Vosk для чистоты серверных логов
+SetLogLevel(-1)
 
-app = FastAPI(title="Local Music AI Search Server")
+app = FastAPI()
 
-# Глобальные переменные для модели и подключения к БД
-model = None
-db_conn = None
+# Базовые пути проекта
+BASE_DIR = Path(__file__).resolve().parent
+VOSK_MODEL_PATH = str(BASE_DIR / "models" / "vosk-model-small-ru")
+E5_MODEL_PATH = str(BASE_DIR / "models" / "multilingual-e5-large")
 
-@app.on_event("startup")
-def startup_event():
-    global model, db_conn
-    print("Инициализация локального микросервиса...", file=sys.stderr)
-    print("Загрузка ИИ-модели из ЛОКАЛЬНОЙ папки (офлайн-режим)...", file=sys.stderr)
-    
-    # 🌟 МАГИЯ ОФЛАЙНА: Запрещаем библиотекам обращаться к интернету (Hugging Face)
-    os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
-    os.environ["TRANSFORMERS_OFFLINE"] = "1"
-    os.environ["HF_HUB_OFFLINE"] = "1"
-    
-    # Вычисляем точный путь к сохраненной модели внутри нашего проекта
-    current_dir = Path(__file__).resolve().parent
-    local_model_path = str(current_dir / "models" / "multilingual-e5-large")
-    
-    # Загружаем модель строго по локальному пути
-    model = SentenceTransformer(local_model_path)
-    
-    print("Подключение к локальной PostgreSQL 17...", file=sys.stderr)
+vosk_model = None
+e5_model = None
+HAS_E5 = False
+
+# =====================================================================
+# 1. ОРИГИНАЛЬНЫЙ СЛОВАРНЫЙ И МАТЕМАТИЧЕСКИЙ БЛОК ДЛЯ ЧИСЛИТЕЛЬНЫХ
+# =====================================================================
+SINGLE_PART_THOUSANDS_VALUES = {
+    'тысяча': 1000, 'тысячный': 1000, 
+    'двухтысячный': 2000, 'трехтысячный': 3000, 'четырехтысячный': 4000, 'пятитысячный': 5000, 
+    'шеститысячный': 6000, 'семитысячный': 7000, 'восьмитысячный': 8000, 'девятитысячный': 9000,
+}
+
+PLAIN_NUMBER_VALUES = {
+    'ноль': 0, 'один': 1, 'два': 2, 
+    'одна': 1, 'две': 2, 'три': 3, 'четыре': 4, 'пять': 5, 'шесть': 6, 'семь': 7, 'восемь': 8, 'девять': 9,
+    'десять': 10, 'одиннадцать': 11, 'двенадцать': 12, 'тринадцать': 13, 'четырнадцать': 14, 'пятнадцать': 15,
+    'шестнадцать': 16, 'семнадцать': 17, 'восемнадцать': 18, 'девятнадцать': 19,
+    'двадцать': 20, 'тридцать': 30, 'сорок': 40, 'пятьдесят': 50, 'шестьдесят': 60, 'семьдесят': 70, 'восемьдесят': 80, 'девяносто': 90,
+    'сто': 100, 'двести': 200, 'триста': 300, 'четыреста': 400, 'пятьсот': 500, 'шестьсот': 600, 'семьсот': 700, 'восемьсот': 800, 'девятьсот': 900,
+}
+
+ADJECTIVE_NUMBER_VALUES = {
+    'один': 1, 'первый': 1, 'второй': 2, 'третий': 3, 'четвертый': 4, 'пятый': 5, 'шестой': 6, 'седьмой': 7, 'восьмой': 8, 'девятый': 9,
+    'десятый': 10, 'одиннадцатый': 11, 'двенадцатый': 12, 'тринадцатый': 13, 'четырнадцать': 14, 'пятнадцатый': 15,
+    'шестнадцатый': 16, 'семнадцатый': 17, 'восемнадцатый': 18, 'девятнадцатый': 19,
+    'двадцатый': 20, 'тридцатый': 30, 'сороковой': 40, 'пятидесятый': 50,
+    'шестидесятый': 60, 'семидесятый': 70, 'восьмидесятый': 80, 'девяностый': 90,
+    'сотый': 100, 'двухсотый': 200, 'трехсотый': 300, 'четырехсотый': 400, 'пятисотый': 500,
+    'шестисотый': 600, 'семисотый': 700, 'восьмисотый': 800, 'девятисотый': 900
+}
+
+ALL_NUMBER_VALUES = PLAIN_NUMBER_VALUES | ADJECTIVE_NUMBER_VALUES
+
+# =====================================================================
+# 2. ПРАВИЛА И ГРАММАТИКА YARGY
+# =====================================================================
+NUMBER_WORD = gram('NUMR')
+
+PLAIN_SUM_MARKERS = or_ (
+    NUMBER_WORD.repeatable(max=3),
+    rule(
+        NUMBER_WORD.repeatable(max=2).optional(),
+        morph_pipeline(list(ADJECTIVE_NUMBER_VALUES.keys()))
+    )
+)
+
+PLAYLIST_MARKERS = morph_pipeline(['плейлист', 'плэй', 'лист'])
+
+THAUSAND_MARKERS = or_(
+    rule(morph_pipeline(list(SINGLE_PART_THOUSANDS_VALUES.keys()))),
+    rule(NUMBER_WORD, morph_pipeline(['тысяча', 'тысяч']))
+)
+
+PlaylistPhrase = fact('PlaylistPhrase', ['is_playlist', 'thousands', 'plain_sum'])
+
+PLAYLIST_RULE = rule(
+    PLAYLIST_MARKERS.interpretation(PlaylistPhrase.is_playlist),
+    or_ (
+        rule(
+            THAUSAND_MARKERS.interpretation(PlaylistPhrase.thousands),
+            PLAIN_SUM_MARKERS.repeatable(max=3).interpretation(PlaylistPhrase.plain_sum)
+        ),
+        rule(PLAIN_SUM_MARKERS.repeatable(max=3).interpretation(PlaylistPhrase.plain_sum)),
+        rule(THAUSAND_MARKERS.interpretation(PlaylistPhrase.thousands)),
+    )
+).interpretation(PlaylistPhrase)
+
+playlist_parser = Parser(PLAYLIST_RULE)
+
+def split_phrase(text):
+    clean_text = " ".join(text.lower().split())
+    match = playlist_parser.find(clean_text)
+    if not match:
+        raise ValueError('В этой фразе синтаксический маркер плейлиста не обнаружен')
+    return match.fact
+
+def check_playlist_phrase(text):
+    """Превращает текстовые русские слова из Vosk в строгое целое число"""
     try:
-        # Подключаемся к вашей локальной базе данных player
-        db_conn = psycopg2.connect(f"dbname={PG_DATABASE} user={PG_USER} password={PG_PASSWORD} host=localhost")
-        print("💡 Локальный ИИ-сервис успешно запущен и готов к работе!", file=sys.stderr)
+        phrase = split_phrase(text)
+        total_sum = 0
+
+        if phrase.thousands:
+            words = phrase.thousands.split(' ')
+            valuable = words[0]
+            if len(words) == 1:
+                total_sum = SINGLE_PART_THOUSANDS_VALUES.get(valuable, 0)
+            else:
+                total_sum = ALL_NUMBER_VALUES.get(valuable, 0) * 1000
+                
+        if not phrase.plain_sum:
+            return int(total_sum)
+
+        words = phrase.plain_sum.split(' ')   
+        for word in words:
+            value = ALL_NUMBER_VALUES.get(word, 0)
+            total_sum = total_sum + value
+
+        return int(total_sum)
+    except Exception:
+        return 0
+
+# =====================================================================
+# 3. АДАПТИВНЫЙ АУДИТ АППАРАТНЫХ ВОЗМОЖНОСТЕЙ ЖЕЛЕЗА
+# =====================================================================
+print("⚙️ [Инициализация системы]: Сканирование аппаратных возможностей...", flush=True)
+
+if os.path.exists(VOSK_MODEL_PATH):
+    print("📋 [Аудит]: Обнаружена базовая модель Vosk. Загрузка...", flush=True)
+    vosk_model = VoskModel(VOSK_MODEL_PATH)
+else:
+    raise RuntimeError(f"Критическая ошибка: Базовая модель Vosk отсутствует по пути {VOSK_MODEL_PATH}")
+
+if os.path.exists(E5_MODEL_PATH) and any(Path(E5_MODEL_PATH).iterdir()):
+    print("🚀 [Аудит]: Обнаружена большая модель multilingual-e5-large!", flush=True)
+    print("🧠 Загрузка e5 в ОЗУ (Семантический режим активирован)...", flush=True)
+    try:
+        from sentence_transformers import SentenceTransformer
+        e5_model = SentenceTransformer(E5_MODEL_PATH)
+        HAS_E5 = True
+        print("✅ [Успех]: Семантический ИИ-поиск полностью готов к работе.", flush=True)
     except Exception as e:
-        print(f"Критическая ошибка подключения к БД: {e}", file=sys.stderr)
-        sys.exit(1)
+        print(f"⚠️ [Ошибка]: Не удалось загрузить e5 (недостаточно ОЗУ): {e}", flush=True)
+        print("➡️ Система принудительно откатывается в легкий Синтаксический режим.", flush=True)
+else:
+    print("💡 [Аудит]: Модель e5 отсутствует. Запущен Легковесный Синтаксический режим (Экономия ОЗУ).", flush=True)
 
-@app.on_event("shutdown")
-def shutdown_event():
-    """Выполняется при закрытии сервера (Ctrl+C)"""
-    global db_conn
-    if db_conn:
-        db_conn.close()
-    print("Локальный сервис остановлен, память очищена.", file=sys.stderr)
 
-@app.get("/search")
-def search(query: str):
-    """Эндпоинт для мгновенного семантического поиска"""
-    global model, db_conn
-    if not query.strip():
-        raise HTTPException(status_code=400, detail="Пустой запрос")
-        
-    # Очищаем текст от мусорных команд управления без использования POSIX-классов [[:space:]]
-    clean_query = query.lower().strip()
-    clean_query = re.sub(r'^(найди|найти|включи|поставь|вруби|запусти|хочу_послушать|хочу\s+послушать)\s*', '', clean_query)
-    
-    # 1. Мгновенная генерация вектора (занимает сотые доли секунды, так как модель в памяти)
-    # Используем обязательный префикс 'query: ' для моделей семейства e5
-    query_embedding = model.encode(f"query: {clean_query}").tolist()
-    
-    # 2. Мгновенный векторный поиск в локальной PostgreSQL 17
+def find_full_playlist_name(prefix: str) -> str:
+    """
+    Вызывает mpc lsplaylists, ищет строку, которая начинается с 'prefix-'
+    и возвращает полное имя плейлиста для mpc load.
+    """
     try:
-        cur = db_conn.cursor()
-        cur.execute("""
-            SELECT playlist_number, track_number, title, composer, style
-            FROM tracks 
-            ORDER BY embedding <=> %s::vector 
-            LIMIT 1;
-        """, (query_embedding,))
+        # Получаем список всех плейлистов из mpd
+        result = subprocess.run("mpc lsplaylists", shell=True, capture_output=True, text=True, check=True)
+        playlists = result.stdout.splitlines()
         
-        result = cur.fetchone()
-        cur.close()
+        # Строим искомый префикс (например, "2022-")
+        target_prefix = f"{prefix}-"
         
-        if result:
-            pl_num, tr_num, title, composer, style = result
-            # Возвращаем JSON с результатом поиска
+        for pl in playlists:
+            if pl.strip().startswith(target_prefix):
+                return pl.strip()
+                
+    except Exception as e:
+        print(f"❌ Ошибка при чтении mpc lsplaylists: {e}")
+        
+    return ""
+
+# =====================================================================
+# 4. СЕТЕВОЙ КОНВЕЙЕР ОБРАБОТКИ ФРАЗ
+# =====================================================================
+@app.post("/voice-search")
+async def receive_voice_and_play(file: UploadFile = File(...)):
+    print(f"\n📥 Входящий аудиозапрос по сети: {file.filename}")
+    
+    audio_bytes = await file.read()
+    wav_stream = io.BytesIO(audio_bytes)
+    
+    try:
+        wf = wave.open(wav_stream, "rb")
+        rec = KaldiRecognizer(vosk_model, wf.getframerate())
+        data = wf.readframes(wf.getnframes())
+        wf.close()
+        
+        # Получаем чистый текст прописью от Vosk
+        res = json.loads(rec.Result() if rec.AcceptWaveform(data) else rec.FinalResult())
+        raw_text = res.get('text', '').strip().lower()
+        print(f"📋 Vosk расшифровал: \"{raw_text}\"")
+        
+        if not raw_text:
+            return {"status": "ignored", "reason": "empty_speech"}
+
+        # 🚀 ЭТАП 1: Быстрые синтаксические команды управления плеером
+        if any(word in raw_text for word in ["пауза", "стоп", "останови"]):
+            subprocess.run("mpc pause", shell=True)
+            return {"status": "success", "mode": "syntax", "command": "pause"}
+        if any(word in raw_text for word in ["играй", "продолжи", "запусти"]):
+            subprocess.run("mpc play", shell=True)
+            return {"status": "success", "mode": "syntax", "command": "play"}
+        if any(word in raw_text for word in ["громче", "добавь звук"]):
+            subprocess.run("mpc volume +10", shell=True)
+            return {"status": "success", "mode": "syntax", "command": "volume_up"}
+        if any(word in raw_text for word in ["тише", "убавь звук"]):
+            subprocess.run("mpc volume -10", shell=True)
+            return {"status": "success", "mode": "syntax", "command": "volume_down"}
+        if any(word in raw_text for word in ["что играет", "статус", "трек", "инфо", "информация"]):
+            print("🕹️ [Команда]: Запрос статуса воспроизведения")
+            # Запрашиваем у mpc текущий трек (возвращает Исполнитель - Название)
+            res_mpc = subprocess.run("mpc current", shell=True, capture_output=True, text=True)
+            current_track = res_mpc.stdout.strip()
+            
+            # Если плеер пуст или остановлен, выдаем понятный статус
+            if not current_track:
+                current_track = "Воспроизведение остановлено или очередь пуста."
+                
             return {
-                "status": "success",
-                "command": f"{pl_num};{tr_num}",
-                "debug_info": f"[Найдено]: {composer} - {title} ({style})"
+                "status": "success", 
+                "mode": "syntax", 
+                "command": "status", 
+                "track": current_track
             }
-        else:
-            return {"status": "not_found", "command": "", "debug_info": "Ничего не найдено"}
+
+        # 🚀 ЭТАП 2: Парсим номер плейлиста строго через ваш оригинальный Yargy-модуль
+        playlist_number = check_playlist_phrase(raw_text)
+        
+        if playlist_number > 0:
+            print(f"🎯 [Yargy триумф]: Извлечен номер: {playlist_number}")
             
+            # Форматируем число с лидирующими нулями до 4 знаков (например, "2022" или "0042")
+            prefix = f"{playlist_number:04d}"
+            
+            # 🌟 НАШ НОВЫЙ СИСТЕМНЫЙ ФИЛЬТР: Ищем полное имя файла в медиатеке
+            full_playlist_name = find_full_playlist_name(prefix)
+            
+            if full_playlist_name:
+                print(f"🎵 Найдено полное совпадение в mpd: \"{full_playlist_name}\"")
+                subprocess.run(f"mpc clear && mpc load \"{full_playlist_name}\" && mpc play", shell=True)
+                return {
+                    "status": "success", 
+                    "mode": "syntax_yargy", 
+                    "recognized_text": raw_text, 
+                    "playlist": full_playlist_name
+                }
+            else:
+                print(f"⚠️ Плейлист с префиксом {prefix}- не найден в выводе mpc lsplaylists.")
+                return {"status": "error", "message": f"Плейлист {prefix} отсутствует в медиатеке."}
+
+        # 🚀 ЭТАП 3: Если это сложный запрос, а e5 доступна — уходим в векторы
+        if HAS_E5:
+            print("🧠 Передаю запрос на семантическую обработку в e5...")
+            # Векторный поиск по базе tracks будет жить здесь
+            return {"status": "success", "mode": "semantic", "recognized_text": raw_text}
+        
+        # Защита от дурака / Игнорирование сложных фраз в синтаксическом режиме
+        print("🎛️ [Адаптивный фильтр]: Сложная фраза проигнорирована (модель e5 выключена).")
+        return {"status": "ignored", "reason": "semantic_disabled_offline", "recognized_text": raw_text}
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Ошибка базы данных: {e}")
+        print(f"❌ Ошибка конвейера на сервере: {e}")
+        return {"status": "error", "message": str(e)}
 
-@app.get("/embed")
-def get_embedding(text: str):
-    """Новый эндпоинт для моментального расчета вектора без перезагрузки модели"""
-    global model
-    if not text.strip():
-        raise HTTPException(status_code=400, detail="Пустой текст")
-    # Генерируем вектор из модели, которая УЖЕ сидит в оперативной памяти
-    embedding = model.encode(f"query: {text}").tolist()
-    return {"embedding": embedding}
-
-from fastapi import BackgroundTasks
-
-def sync_missing_embeddings():
-    """Фоновая функция: находит строки с NULL-векторами и считает их на прогретой модели"""
-    global model, db_conn
-    
-    try:
-        # Открываем изолированный курсор
-        cur = db_conn.cursor()
-        
-        # Находим только те строки, которые триггер пометил как измененные (embedding IS NULL)
-        cur.execute("""
-            SELECT id, playlist_number, track_number, title, artist, album, genre, style, form, meta_hash 
-            FROM tracks 
-            WHERE embedding IS NULL;
-        """)
-        rows = cur.fetchall()
-        
-        if not rows:
-            cur.close()
-            return
-            
-        print(f"🌟 [Фоновый эмбеддер]: Найдено строк для пересчета: {len(rows)}", file=sys.stderr)
-        
-        # Каноническая сборка текста для нашей ИИ-модели
-        texts_to_encode = []
-        for row in rows:
-            db_id, pl_num, tr_num, title, artist, album, genre, style, form, old_hash = row
-            parts = []
-            if title: parts.append(f"Название: {title}")
-            if artist: parts.append(f"Исполнитель: {artist}")
-            if album: parts.append(f"Альбом: {album}")
-            if genre: parts.append(f"Жанр: {genre}")
-            if style: parts.append(f"Стиль: {style}")
-            if form: parts.append(f"Форма: {form}")
-            texts_to_encode.append(" ; ".join(parts))
-            
-        # Мгновенно генерируем векторы на уже горячей модели в ОЗУ пачкой!
-        embeddings = model.encode(texts_to_encode, batch_size=32)
-        
-        # Записываем новые векторы обратно в Postgres
-        for i, row in enumerate(rows):
-            db_id = row[0]
-            single_vector = embeddings[i].tolist()
-            
-            cur.execute("""
-                UPDATE tracks 
-                SET embedding = %s 
-                WHERE id = %s;
-            """, (single_embedding, db_id))
-            
-        db_conn.commit()
-        cur.close()
-        print(f"✅ [Фоновый эмбеддер]: Успешно синхронизировано треков: {len(rows)}", file=sys.stderr)
-        
-    except Exception as e:
-        print(f"❌ Ошибка фонового пересчета векторов: {e}", file=sys.stderr)
-
-
-@app.post("/refresh")
-def refresh_embeddings_endpoint(background_tasks: BackgroundTasks):
-    """
-    Эндпоинт мгновенного вызова синхронизации.
-    Добавляет задачу в фоновый поток FastAPI и сразу возвращает статус 'OK',
-    не заставляя пользователя ждать окончания вычислений.
-    """
-    background_tasks.add_task(sync_missing_embeddings)
-    return {"status": "accepted", "message": "Синхронизация векторов запущена в фоновом потоке сервера."}
-
-
-
+# Классический старт uvicorn
 if __name__ == "__main__":
-    # Запускаем локальный веб-сервер на порту 8080
-    uvicorn.run(app, host="127.0.0.1", port=8080, log_level="warning")
-
+    import uvicorn
+    print("🚀 [Старт]: Сетевой FastAPI-сервер запускается на порту 8080...", flush=True)
+    uvicorn.run(app, host="0.0.0.0", port=8080)
 
