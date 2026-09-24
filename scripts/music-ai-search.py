@@ -177,6 +177,79 @@ def find_full_playlist_name(prefix: str) -> str:
 # =====================================================================
 # 4. СЕТЕВОЙ КОНВЕЙЕР ОБРАБОТКИ ФРАЗ
 # =====================================================================
+from fastapi import FastAPI, UploadFile, File, Query, HTTPException
+
+# ... (весь ваш предыдущий импорт, грамматика Yargy, инициализация Vosk и эндпоинт /voice-search остаются без изменений) ...
+
+# =====================================================================
+# 5. СЕТЕВОЙ REST-ПУЛЬТ ДЛЯ КНОПОЧНЫХ УСТРОЙСТВ (Калька с mpc)
+# =====================================================================
+@app.post("/mpc")
+@app.get("/mpc")  # Добавляем GET, чтобы команды можно было слать даже просто из адресной строки браузера
+def mpc_network_remote(
+    action: str = Query(None, description="Действие: play, pause, toggle, next, prev, clear"),
+    volume: str = Query(None, description="Изменение громкости, например: +5, -10, 50"),
+    load: str = Query(None, description="4-значный номер плейлиста для поиска и загрузки, например: 2022")
+):
+    """
+    Универсальный сетевой шлюз к утилите mpc.
+    Позволяет управлять плеером по сети через простые URL-параметры.
+    """
+    executed_commands = []
+
+    # 1. Обработка базовых действий (play, pause, toggle, next, prev, clear)
+    if action:
+        valid_actions = {
+            "play": "mpc play",
+            "pause": "mpc pause",
+            "toggle": "mpc toggle",
+            "next": "mpc next",
+            "prev": "mpc prev",
+            "clear": "mpc clear"
+        }
+        if action in valid_actions:
+            execute_mpc(valid_actions[action])
+            executed_commands.append(f"action: {action}")
+        else:
+            raise HTTPException(status_code=400, detail=f"Неизвестное действие '{action}'. Допустимы: {list(valid_actions.keys())}")
+
+    # 2. Обработка регулировки громкости (например: +5, -10 или абсолютное значение 50)
+    if volume:
+        # Проверяем синтаксис (должно начинаться с + или - или быть просто числом)
+        if re.match(r'^[+-]?\d+$', volume):
+            execute_mpc(f"mpc volume {volume}")
+            executed_commands.append(f"volume: {volume}")
+        else:
+            raise HTTPException(status_code=400, detail="Неверный формат громкости. Используйте: +5, -10 или 70")
+
+    # 3. Обработка загрузки плейлиста по префиксу с автоматическим поиском имени файла
+    if load:
+        if re.match(r'^\d{1,4}$', load):
+            # Приводим к 4 цифрам с лидирующими нулями (канон проекта)
+            prefix = f"{int(load):04d}"
+            
+            # Задействуем вашу функцию поиска полного имени плейлиста в mpd
+            full_playlist_name = find_full_playlist_name(prefix)
+            
+            if full_playlist_name:
+                print(f"🕹️ [REST-Пульт]: По префиксу {prefix} найден плейлист \"{full_playlist_name}\"")
+                execute_mpc(f"mpc clear && mpc load \"{full_playlist_name}\" && mpc play")
+                executed_commands.append(f"load_playlist: {full_playlist_name}")
+            else:
+                raise HTTPException(status_code=444, detail=f"Плейлист с префиксом {prefix}- не найден в медиатеке.")
+        else:
+            raise HTTPException(status_code=400, detail="Номер плейлиста должен состоять только из цифр (до 4 знаков)")
+
+    # Если эндпоинт вызвали вообще без параметров
+    if not executed_commands:
+        return {"status": "ignored", "message": "Не передано ни одного параметра (action, volume или load)."}
+
+    return {
+        "status": "success",
+        "mode": "rest_remote",
+        "executed": executed_commands
+    }
+
 @app.post("/voice-search")
 async def receive_voice_and_play(file: UploadFile = File(...)):
     print(f"\n📥 Входящий аудиозапрос по сети: {file.filename}")

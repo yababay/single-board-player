@@ -1,24 +1,19 @@
 [Unit]
-Description=Однократный запуск ИИ-распознавания голоса
-# Сервис не запустится, если наш главный ИИ-сервер поиска выключен
-After=music-ai-search.service
-Requires=music-ai-search.service
+Description=Однократный запуск ИИ-распознавания голоса по сети
 
 [Service]
 Type=oneshot
+RemainAfterExit=no
 
 # 🌟 ЗАЩИТА ОТ ДВОЙНОГО КЛИКА И ОЧЕРЕДИ:
-# Если сервис вызывается чаще, чем раз в 12 секунд, systemd просто проигнорирует повторный вызов
 TriggerLimitIntervalSec=12s
 TriggerLimitBurst=1
 
 # Указываем фоновому сервису systemd адрес вашего текущего экрана X-сервера
 Environment="DISPLAY=:0"
 Environment="XAUTHORITY=%h/.Xauthority"
-Environment="PATH=/usr/share/single-board-player/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=/media/portable/.3f-lab/_projects/single-board-player/.venv/bin:/usr/local/bin:/usr/bin:/bin"
 
-WorkingDirectory=/usr/share/single-board-player
-ExecStart=python3 music-voice-assistant.py
+WorkingDirectory=/media/portable/.3f-lab/_projects/single-board-player
+ExecStart=python3 scripts/music-voice-assistant.py
 
-[Install]
-WantedBy=default.target
