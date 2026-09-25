@@ -27,3 +27,4 @@ scripts/__pycache__/
 scripts/models/
 .venv/
 *.deb
+models/
